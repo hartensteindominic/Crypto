@@ -3,11 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto App</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+    <title>Crypto Wallet Connector</title>
 </head>
 <body>
-    <div id="status">Ready to connect wallet.</div>
-    <!-- other content -->
+    <h1>Wallet Connection</h1>
+    <p id="status">Ready to connect wallet.</p>
+    <script>
+        async function connectWallet() {
+            try {
+                // Wallet connection logic here...
+                // Enhanced error handling
+document.getElementById('status').innerText = 'Connecting...';
+                // Simulate connection process
+                throw new Error('Connection failed! Please check your wallet and try again.');
+            } catch (error) {
+                document.getElementById('status').innerText = error.message + ' Ensure you are using a compatible browser.';
+            }
+        }
+        // Browser compatibility check
+        if (!navigator.userAgent.includes('Chrome')) {
+            alert('Please use Google Chrome for the best experience.');
+        }
+    </script>
 </body>
 </html>
