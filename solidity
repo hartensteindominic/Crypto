@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
+contract LegendaryNFT is ERC721 {
+    uint256 public nextTokenId;
+    address public owner;
+
+    constructor() ERC721("LegendaryNFT", "LGN") {
+        owner = msg.sender;
+    }
+
+    // This is the function your website will call
+    function mint() public payable {
+        // You could add a price here, e.g., require(msg.value == 0.01 ether);
+        _safeMint(msg.sender, nextTokenId);
+        nextTokenId++;
+    }
+}
