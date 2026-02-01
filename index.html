@@ -8,85 +8,88 @@
     <style>
         :root { --accent: #6366f1; --bg: #0f172a; }
         body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; width: 350px; border: 1px solid #334155; }
-        .btn { background: var(--accent); color: white; border: none; padding: 1rem; border-radius: 0.5rem; width: 100%; font-weight: bold; cursor: pointer; }
-        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
+        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; width: 350px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+        .btn { background: var(--accent); color: white; border: none; padding: 1.2rem; border-radius: 0.5rem; width: 100%; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
+        .btn:disabled { background: #475569; opacity: 0.7; cursor: not-allowed; }
+        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; min-height: 40px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>NFT Mint</h2>
-    <button id="mainBtn" class="btn" onclick="start()">Connect Wallet</button>
-    <div id="status">Checking wallet...</div>
+    <h1 style="margin-top:0">NFT Mint</h1>
+    <p style="color: #94a3b8; margin-bottom: 20px;">Price: 0.001 ETH</p>
+    <button id="mainBtn" class="btn" onclick="startProcess()">Connect Wallet</button>
+    <div id="status">Waiting for connection...</div>
 </div>
 
 <script>
-    // 1. !!! YOU MUST CHANGE THIS TO YOUR ACTUAL ADDRESS !!!
-    const CONTRACT_ADDRESS = "PASTE_YOUR_ADDRESS_HERE"; 
+    // --- YOUR PERSONALIZED CONFIG ---
+    const CONTRACT_ADDRESS = "0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb"; 
     const PRICE = "0.001";
 
     let signer = null;
 
-    async function start() {
-        const status = document.getElementById('status');
+    async function startProcess() {
         const btn = document.getElementById('mainBtn');
+        const status = document.getElementById('status');
 
         if (!window.ethereum) {
-            alert("No wallet found! Open this in MetaMask.");
+            alert("Please open this in the MetaMask app browser!");
             return;
         }
 
         const provider = new ethers.BrowserProvider(window.ethereum);
 
-        // Step A: Connect Wallet
+        // 1. Handle Connection
         if (!signer) {
             try {
+                btn.disabled = true;
+                status.innerText = "Connecting...";
                 const accounts = await provider.send("eth_requestAccounts", []);
                 signer = await provider.getSigner();
-                status.innerText = "Connected: " + accounts[0].substring(0,6);
+                
+                status.innerHTML = `✅ Connected: <b>${accounts[0].substring(0,6)}...</b>`;
                 btn.innerText = "Mint Now";
-                return;
+                btn.disabled = false;
             } catch (e) {
-                alert("Connection Failed: " + e.message);
-                return;
+                alert("Connection failed!");
+                btn.disabled = false;
             }
+            return;
         }
 
-        // Step B: The Mint
+        // 2. Handle Minting
         try {
-            status.innerText = "Sending Transaction...";
             btn.disabled = true;
+            status.innerText = "Confirm transaction in your wallet...";
 
-            // Check if user is on the right network (e.g., Sepolia is 11155111)
-            const network = await provider.getNetwork();
-            console.log("Current Network ID:", network.chainId);
-
+            // ABI for Thirdweb standard claim function
             const abi = ["function claim(address r, uint256 q, address c, uint256 p, (bytes32[] pr, uint256 ql, uint256 p2, address c2) a, bytes d) external payable"];
             const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-            // Trigger the wallet popup
             const tx = await contract.claim(
                 await signer.getAddress(), 
                 1, 
-                "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", 
+                "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH
                 ethers.parseEther(PRICE), 
-                [[], 0, 0, "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"], 
+                [[], 0, 0, "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"], // No allowlist
                 "0x",
                 { value: ethers.parseEther(PRICE) }
             );
 
-            status.innerText = "Mining... please wait.";
+            status.innerText = "Transaction sent! Waiting for block...";
             await tx.wait();
-            status.innerText = "✅ SUCCESS!";
-            alert("Mint Successful!");
+
+            status.innerHTML = "<b style='color:#10b981'>🎉 MINT SUCCESSFUL!</b>";
+            btn.innerText = "Mint Again";
+            btn.disabled = false;
 
         } catch (e) {
-            btn.disabled = false;
             console.error(e);
-            // This alert will tell us EXACTLY why it failed
             alert("MINT ERROR: " + (e.reason || e.message));
-            status.innerText = "Error occurred. Check alert.";
+            status.innerText = "Error: Check your balance or network.";
+            btn.disabled = false;
         }
     }
 </script>
