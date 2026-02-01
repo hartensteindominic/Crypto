@@ -1,248 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Crypto Rocket Fleet – Launch & Stake</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
-  <style>
-    body { margin:0; min-height:100vh; background:#0a0015; color:#00ffff; font-family:system-ui,sans-serif; }
-    #bgCanvas { position:fixed; inset:0; z-index:1; pointer-events:none; }
-    header, main, footer { position:relative; z-index:10; }
-    header { background:linear-gradient(135deg,#0a0022,#1a0044); padding:60px 20px; text-align:center; }
-    h1 { font-size:clamp(2.5rem,8vw,4.5rem); background:linear-gradient(90deg,#00ffff,#ff00d4,#ffff00); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 30px #00ffff; }
-    main { max-width:1100px; margin:0 auto; padding:20px; }
-    .card { background:rgba(20,0,40,0.85); border:1px solid #00aaff; border-radius:16px; padding:25px; margin:25px 0; backdrop-filter:blur(10px); box-shadow:0 0 40px rgba(0,170,255,0.25); }
-    .btn-launch { padding:16px 50px; font-size:1.5rem; background:linear-gradient(45deg,#ff4500,#ff8c00); border:none; border-radius:50px; color:white; box-shadow:0 0 40px #ff4500; transition:all 0.3s; }
-    .btn-launch:hover:not(:disabled) { transform:scale(1.1); box-shadow:0 0 70px #ff5500; }
-    #rocket { position:fixed; bottom:40px; left:50%; transform:translateX(-50%); font-size:6rem; z-index:20; display:none; pointer-events:none; }
-    .launching { animation:rocketAscend 5s ease-out forwards; }
-    @keyframes rocketAscend { 0% { bottom:40px; transform:translateX(-50%) scale(1); } 100% { bottom:120vh; opacity:0; transform:translateX(-50%) scale(3); } }
-    #status { min-height:120px; font-size:1.3rem; text-align:center; margin:20px 0; }
-    .success { color:#0f0; text-shadow:0 0 15px #0f0; }
-    .fail { color:#f44; text-shadow:0 0 15px #f44; }
-    footer { text-align:center; padding:40px 20px; background:rgba(0,0,0,0.9); color:#aaa; }
-  </style>
+    <title>Rocket Fuel & NFT Claim</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <style>
+        body { background: #0a0a23; color: white; font-family: sans-serif; text-align: center; }
+        .card { border: 2px solid #00d4ff; padding: 20px; border-radius: 15px; width: 300px; margin: 50px auto; }
+        button { background: #ff6600; border: none; padding: 10px 20px; color: white; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        #status { color: #00ff88; margin-top: 15px; }
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
-  <canvas id="bgCanvas"></canvas>
-  <div id="rocket">🚀</div>
 
-  <header>
-    <h1>Crypto Rocket Fleet</h1>
-    <p class="lead">Launch → Stake → Conquer the Cosmos</p>
-  </header>
+    <div class="card">
+        <h2>Rocket Fuel Station</h2>
+        <p>Current Revenue: <span id="revenue">$0.00</span></p>
+        
+        <div id="stake-section">
+            <input type="number" id="amount" value="0.001" step="0.001" style="width: 80px;">
+            <button onclick="stakeETH()">STAKE ETH</button>
+        </div>
 
-  <main>
-    <div class="card text-center">
-      <h3 class="mb-4">🔥 LAUNCH YOUR ROCKET 🔥</h3>
-      <p class="mb-4">Send 0.001 – 0.1 ETH to fuel the mission</p>
+        <div id="processing-section" class="hidden">
+            <p>Processing WiFi Data...</p>
+            <div id="progress-bar" style="background: #333; height: 10px; width: 100%;">
+                <div id="fill" style="background: #ff6600; height: 100%; width: 0%;"></div>
+            </div>
+        </div>
 
-      <button id="connect" class="btn btn-lg btn-info mb-4 px-5">Connect Wallet</button>
-      <div id="wallet-info" class="mb-4 fs-5"></div>
+        <div id="claim-section" class="hidden">
+            <h3>Mission Success!</h3>
+            <button onclick="claimNFT()">CLAIM MISSION NFT</button>
+        </div>
 
-      <input type="number" id="fuel" class="form-control form-control-lg mb-4 text-center bg-dark text-light border-info" placeholder="0.001 – 0.1 ETH" step="0.001" min="0.001" max="0.1"/>
-
-      <button id="launch" class="btn-launch" disabled>LAUNCH ROCKET!</button>
-
-      <div id="status" class="mt-4"></div>
+        <p id="status"></p>
     </div>
 
-    <div class="card text-center">
-      <h4>Rocket Fuel Staking Pool</h4>
-      <p>Stake ETH → Earn rewards over time → Boost launch success</p>
+    <script>
+        let provider, signer, contract;
+        const contractAddress = "YOUR_DEPLOYED_CONTRACT_ADDRESS";
+        const abi = [ /* Your Contract ABI here */ ];
 
-      <div class="input-group mb-3">
-        <input type="number" id="stakeAmount" class="form-control bg-dark text-light border-info" placeholder="ETH to stake" step="0.001" min="0.001"/>
-        <button id="stakeBtn" class="btn btn-success px-4">STAKE</button>
-      </div>
-
-      <div class="mb-4">
-        <button id="unstakeBtn" class="btn btn-warning px-4" disabled>Unstake All</button>
-        <button id="claimRewardsBtn" class="btn btn-info px-4 ms-2" disabled>Claim Rewards</button>
-      </div>
-
-      <p id="stakedDisplay" class="fs-5">Your Stake: 0 ETH</p>
-      <p id="rewardsDisplay" class="fs-5">Pending Rewards: 0 ETH</p>
-      <p id="boostDisplay" class="fs-5">Launch Boost: +0%</p>
-    </div>
-
-    <div class="card text-center">
-      <h5>Or Support with Fiat</h5>
-      <form action="https://www.paypal.com/donate" method="post" target="_top">
-        <input type="hidden" name="hosted_button_id" value="YOUR_PAYPAL_BUTTON_ID_HERE"/>
-        <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="Donate with PayPal"/>
-      </form>
-    </div>
-  </main>
-
-  <footer>
-    © 2026 Dominic • Powered by Ethereum • All transactions on-chain
-  </footer>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    // Canvas background
-    const canvas = document.getElementById('bgCanvas');
-    const ctx = canvas.getContext('2d');
-    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-    const stars = [];
-    for (let i = 0; i < 400; i++) stars.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, size:Math.random()*2+0.5, speed:Math.random()*0.4+0.1});
-    function animateBg() {
-      ctx.fillStyle = 'rgba(10,0,20,0.07)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle = '#ffffff';
-      stars.forEach(s => {
-        ctx.globalAlpha = 0.7 + Math.sin(Date.now()*0.001 + s.x)*0.3;
-        ctx.beginPath(); ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill();
-        s.y += s.speed; if (s.y > canvas.height) s.y = 0;
-      });
-      requestAnimationFrame(animateBg);
-    }
-    animateBg();
-
-    // Wallet + Launch
-    const RECIPIENT = '0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb';
-    const rocket = document.getElementById('rocket');
-    const status = document.getElementById('status');
-    const launchBtn = document.getElementById('launch');
-    const connectBtn = document.getElementById('connect');
-    const walletInfo = document.getElementById('wallet-info');
-    const fuelInput = document.getElementById('fuel');
-
-    let web3, account;
-
-    async function updateWalletUI() {
-      if (!window.ethereum) return;
-      try {
-        const acc = await window.ethereum.request({method:'eth_accounts'});
-        if (acc.length > 0) {
-          account = acc[0];
-          walletInfo.innerHTML = `Connected: ${account.slice(0,6)}...${account.slice(-4)}`;
-          launchBtn.disabled = false;
-          connectBtn.textContent = 'Connected';
-          connectBtn.disabled = true;
+        async function initWeb3() {
+            if (window.ethereum) {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                document.getElementById('status').innerText = "Wallet Connected";
+            } else {
+                alert("Please install MetaMask!");
+            }
         }
-      } catch (err) {}
-    }
 
-    connectBtn.onclick = async () => {
-      if (!window.ethereum) return walletInfo.innerHTML = '<span style="color:#ff5500">MetaMask needed</span>';
-      web3 = new Web3(window.ethereum);
-      try {
-        await window.ethereum.request({method:'eth_requestAccounts'});
-        updateWalletUI();
-      } catch (e) {
-        walletInfo.innerHTML = `<span style="color:#ff5500">Failed: ${e.message}</span>`;
-      }
-    };
+        async function stakeETH() {
+            try {
+                await initWeb3();
+                const amount = document.getElementById('amount').value;
+                const weiValue = ethers.utils.parseEther(amount);
 
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', updateWalletUI);
-      window.ethereum.on('chainChanged', () => location.reload());
-    }
-    updateWalletUI();
+                document.getElementById('status').innerText = "Sending Transaction...";
+                
+                // Replace with your actual contract call: 
+                // await contract.stake({ value: weiValue });
 
-    launchBtn.onclick = async () => {
-      const amt = parseFloat(fuelInput.value);
-      if (isNaN(amt) || amt < 0.001 || amt > 0.1) return status.innerHTML = '<span style="color:#ff0">0.001–0.1 ETH only</span>';
+                // UI Transition to "Processing WiFi Data"
+                document.getElementById('stake-section').classList.add('hidden');
+                document.getElementById('processing-section').classList.remove('hidden');
+                simulateWiFiProcessing();
+                
+            } catch (err) {
+                document.getElementById('status').innerText = "Error: " + err.message;
+            }
+        }
 
-      rocket.style.display = 'block';
-      rocket.classList.remove('launching');
-      launchBtn.disabled = true;
-      status.innerHTML = '<span style="color:#ffff00">Launching...</span>';
+        function simulateWiFiProcessing() {
+            let progress = 0;
+            let revenue = 0;
+            const interval = setInterval(() => {
+                progress += 5;
+                revenue += 0.12; // Simulating revenue build-up
+                document.getElementById('fill').style.width = progress + "%";
+                document.getElementById('revenue').innerText = "$" + revenue.toFixed(2);
 
-      try {
-        const wei = web3.utils.toWei(amt.toString(), 'ether');
-        const gas = await web3.eth.estimateGas({from:account, to:RECIPIENT, value:wei});
-        const tx = await web3.eth.sendTransaction({from:account, to:RECIPIENT, value:wei, gas});
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    document.getElementById('processing-section').classList.add('hidden');
+                    document.getElementById('claim-section').classList.remove('hidden');
+                    document.getElementById('status').innerText = "Data Processed. NFT Ready!";
+                }
+            }, 200);
+        }
 
-        rocket.classList.add('launching');
-        status.innerHTML = `<span class="success">Success!</span><br><a href="https://sepolia.etherscan.io/tx/${tx.transactionHash}" target="_blank" style="color:#00ffff">Tx: ${tx.transactionHash.slice(0,10)}...</a>`;
-      } catch (e) {
-        rocket.style.display = 'none';
-        status.innerHTML = `<span class="fail">Failed: ${e.message || 'Rejected'}</span>`;
-      } finally {
-        launchBtn.disabled = false;
-        setTimeout(() => rocket.style.display = 'none', 7000);
-      }
-    };
-
-    // ────────────────────────────────────────
-    // REAL STAKING – replace with your values
-    // ────────────────────────────────────────
-    const STAKING_ADDRESS = "0xYourNewSepoliaContractAddressHere"; // ← PASTE HERE
-    const STAKING_ABI = [ /* PASTE FULL ABI ARRAY FROM REMIX HERE */ ];
-
-    let stakingContract;
-
-    async function initStaking() {
-      if (!web3 || !account || !STAKING_ADDRESS || STAKING_ABI.length === 0) {
-        document.getElementById('stakedDisplay').textContent = "Connect wallet & set contract";
-        return;
-      }
-      stakingContract = new web3.eth.Contract(STAKING_ABI, STAKING_ADDRESS);
-      updateStakingUI();
-      setInterval(updateStakingUI, 10000);
-    }
-
-    async function updateStakingUI() {
-      try {
-        const stakedWei = await stakingContract.methods.balanceOf(account).call();
-        const rewardsWei = await stakingContract.methods.earned(account).call();
-        const staked = web3.utils.fromWei(stakedWei, 'ether');
-        const rewards = web3.utils.fromWei(rewardsWei, 'ether');
-
-        document.getElementById('stakedDisplay').textContent = `Your Stake: ${parseFloat(staked).toFixed(4)} ETH`;
-        document.getElementById('rewardsDisplay').textContent = `Pending Rewards: ${parseFloat(rewards).toFixed(6)} ETH`;
-
-        const boost = Math.min(50, parseFloat(staked) * 10);
-        document.getElementById('boostDisplay').textContent = `Launch Boost: +${boost.toFixed(1)}%`;
-
-        document.getElementById('unstakeBtn').disabled = parseFloat(staked) <= 0;
-        document.getElementById('claimRewardsBtn').disabled = parseFloat(rewards) <= 0;
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    document.getElementById('stakeBtn').onclick = async () => {
-      const amt = document.getElementById('stakeAmount').value;
-      if (!amt || parseFloat(amt) <= 0) return alert("Enter amount");
-      try {
-        const wei = web3.utils.toWei(amt, 'ether');
-        await stakingContract.methods.stake().send({ from: account, value: wei });
-        alert("Staked!");
-        updateStakingUI();
-        document.getElementById('stakeAmount').value = '';
-      } catch (err) {
-        alert("Stake failed: " + (err.reason || err.message));
-      }
-    };
-
-    document.getElementById('unstakeBtn').onclick = async () => {
-      try {
-        const stakedWei = await stakingContract.methods.balanceOf(account).call();
-        await stakingContract.methods.withdraw(stakedWei).send({ from: account });
-        alert("Unstaked!");
-        updateStakingUI();
-      } catch (err) {
-        alert("Unstake failed: " + (err.reason || err.message));
-      }
-    };
-
-    document.getElementById('claimRewardsBtn').onclick = async () => {
-      try {
-        await stakingContract.methods.getReward().send({ from: account });
-        alert("Rewards claimed!");
-        updateStakingUI();
-      } catch (err) {
-        alert("Claim failed: " + (err.reason || err.message));
-      }
-    };
-  </script>
+        async function claimNFT() {
+            try {
+                document.getElementById('status').innerText = "Minting NFT...";
+                // const tx = await contract.claimMissionNFT();
+                // await tx.wait();
+                document.getElementById('status').innerText = "NFT Claimed Successfully!";
+            } catch (err) {
+                document.getElementById('status').innerText = "Claim Failed: " + err.message;
+            }
+        }
+    </script>
 </body>
 </html>
