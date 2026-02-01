@@ -1,0 +1,19 @@
+/my-crypto-game
+│
+├── index.html          # Main entry point (the UI and container)
+├── /js                 # JavaScript Logic
+│   ├── app.js          # The "Brain" (Connects UI, Blockchain, and Game)
+│   ├── GameEngine.js   # The 3D Engine (Three.js setup and loop)
+│   └── blockchain.js   # Wallet & Contract helper functions
+│
+├── /assets             # Game Resources
+│   ├── /models         # 3D models (.glb or .gltf files)
+│   ├── /textures       # Images for surfaces (.jpg, .png)
+│   └── /sounds         # Background music and SFX (.mp3)
+│
+├── /contracts          # Blockchain Files
+│   ├── GameVault.sol   # Your Solidity smart contract code
+│   └── abi.json        # The "Interface" your JS needs to talk to the contract
+│
+└── /css                # Styling
+    └── style.css       # Custom animations and UI tweaks
