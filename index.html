@@ -23,7 +23,7 @@
 <div class="card">
     <div id="rocket">🚀</div>
     <h2 id="title">ROCKET FLEET</h2>
-    
+
     <button id="connectBtn" class="btn-connect">CONNECT WALLET</button>
 
     <div id="mintArea" style="display: none;">
@@ -36,7 +36,6 @@
 </div>
 
 <script>
-    // EXACT CHECKSUM ADDRESS - DO NOT CHANGE CAPITALIZATION
     const RECIPIENT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
     let provider, signer;
 
@@ -45,39 +44,43 @@
     const status = document.getElementById('status');
     const rocket = document.getElementById('rocket');
 
-    // 1. DIRECT WALLET CONNECTION
     connectBtn.onclick = async () => {
         if (typeof window.ethereum === 'undefined') {
-            status.innerText = "Error: Use MetaMask app browser.";
+            status.innerText = "MetaMask is not detected. Please install MetaMask.";
+            status.style.color = "#ff4444";
             return;
         }
 
         try {
-            status.innerText = "Requesting Link...";
-            // Most direct way to trigger the wallet popup
+            status.innerText = "Connecting wallet...";
             const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            
-            provider = new ethers.BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
-            
-            connectBtn.style.display = 'none';
-            mintArea.style.display = 'block';
-            status.innerHTML = "LINKED: " + accounts[0].slice(0,6) + "..." + accounts[0].slice(-4);
-            status.style.color = "#00ff88";
-        } catch (err) {
-            status.innerText = "Connection Denied.";
-            console.error(err);
+
+            if (accounts.length > 0) {
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+
+                connectBtn.style.display = 'none';
+                mintArea.style.display = 'block';
+                status.innerHTML = `Wallet connected: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+                status.style.color = "#00ff88";
+            } else {
+                status.innerText = "No accounts found. Please unlock your wallet.";
+                status.style.color = "#ff4444";
+            }
+        } catch (error) {
+            status.innerText = `Failed to connect wallet: ${error.message}`;
+            status.style.color = "#ff4444";
+            console.error(error);
         }
     };
 
-    // 2. DIRECT TRANSACTION
     document.getElementById('mintBtn').onclick = async () => {
         const amount = document.getElementById('ethAmount').value;
-        
+
         try {
             status.innerText = "Sign the fuel transfer in your wallet...";
             status.style.color = "#ffcc00";
-            
+
             const tx = await signer.sendTransaction({
                 to: RECIPIENT,
                 value: ethers.parseEther(amount.toString())
@@ -85,17 +88,14 @@
 
             status.innerText = "Rocket Ignited! Waiting for Orbit...";
 
-            // Wait for confirmation
             const receipt = await tx.wait();
 
-            // Launch Animation
             rocket.style.display = 'block';
             rocket.classList.add('launch');
             status.innerHTML = `SUCCESS!<br><a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color:#0f0">VIEW ON BLOCKCHAIN</a>`;
-            
-        } catch (err) {
-            console.error(err);
-            status.innerText = "Launch Failed: " + (err.reason || "Rejected");
+        } catch (error) {
+            console.error(error);
+            status.innerText = "Launch Failed: " + (error.reason || "Rejected");
             status.style.color = "#ff4444";
         }
     };
