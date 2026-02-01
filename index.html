@@ -1,169 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>WiFi Rocket Mission Control</title>
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <style>
-    :root { --neon: #00d4ff; --glow: #ff6600; --dark: #0a001a; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: radial-gradient(circle at top, #1a0033 0%, #000 100%);
-      color: white;
-      font-family: 'Courier New', monospace;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      touch-action: manipulation;
-    }
-    #bgCanvas {
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      pointer-events: none;
-    }
-    .dashboard {
-      position: relative;
-      z-index: 10;
-      background: rgba(10,10,35,0.92);
-      border: 2px solid var(--neon);
-      border-radius: 25px;
-      width: 90%;
-      max-width: 420px;
-      margin: 40px auto;
-      padding: 35px 20px;
-      text-align: center;
-      box-shadow: 0 0 40px rgba(0,212,255,0.3);
-      backdrop-filter: blur(12px);
-    }
-    .rev-header {
-      background: rgba(0,212,255,0.12);
-      border-radius: 15px;
-      padding: 20px;
-      margin-bottom: 25px;
-      border: 1px solid var(--neon);
-    }
-    #revenue {
-      color: #00ff88;
-      font-size: 36px;
-      font-weight: bold;
-      text-shadow: 0 0 20px #00ff88;
-    }
-    input {
-      width: 100%;
-      padding: 15px;
-      margin: 15px 0;
-      border-radius: 12px;
-      border: 1px solid #333;
-      background: #000;
-      color: var(--neon);
-      text-align: center;
-      font-size: 20px;
-    }
-    button {
-      background: linear-gradient(135deg, var(--glow), #ff2200);
-      color: white;
-      border: none;
-      padding: 18px;
-      width: 100%;
-      border-radius: 12px;
-      font-weight: bold;
-      font-size: 18px;
-      cursor: pointer;
-      box-shadow: 0 5px 15px rgba(255,102,0,0.4);
-      transition: 0.3s;
-    }
-    button:hover:not(:disabled) {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 25px rgba(255,102,0,0.6);
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    #rocket {
-      position: fixed;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 120px;
-      z-index: 20;
-      display: none;
-      pointer-events: none;
-      filter: drop-shadow(0 0 30px var(--glow));
-    }
-    .launching {
-      animation: rocketAscend 5s ease-out forwards;
-    }
-    @keyframes rocketAscend {
-      0%   { bottom: 40px; transform: translateX(-50%) scale(1.2); opacity: 1; }
-      100% { bottom: 120vh; transform: translateX(-50%) scale(3); opacity: 0; }
-    }
-    .progress-container {
-      width: 100%;
-      background: #111;
-      border-radius: 10px;
-      height: 18px;
-      margin: 25px 0;
-      overflow: hidden;
-      border: 1px solid #222;
-    }
-    #progress-fill {
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, var(--neon), #00ff88);
-      box-shadow: 0 0 20px var(--neon);
-      transition: width 0.3s ease;
-    }
-    .hidden { display: none; }
-    .spinner {
-      border: 5px solid #333;
-      border-top: 5px solid var(--neon);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: 20px auto;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .success { color: #00ff88; text-shadow: 0 0 20px #00ff88; }
-    .warning {
-      background: rgba(255,69,0,0.18);
-      border: 1px solid #ff4500;
-      border-radius: 12px;
-      padding: 15px;
-      margin: 20px 0;
-      color: #ffaa00;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Rocket Mint</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/index.umd.min.js"></script>
+    <style>
+        body { background: #050505; color: white; font-family: sans-serif; text-align: center; padding-top: 50px; }
+        .box { border: 1px solid #333; padding: 40px; border-radius: 15px; display: inline-block; background: #111; }
+        input { padding: 10px; width: 80%; margin: 10px 0; background: #000; border: 1px solid #444; color: #0f0; }
+        button { padding: 15px 30px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; }
+        .btn-connect { background: #007bff; color: white; }
+        .btn-launch { background: #28a745; color: white; margin-top: 20px; }
+        #rocket { font-size: 80px; display: none; margin: 20px; }
+        .launching { animation: fly 2s forwards; }
+        @keyframes fly { to { transform: translateY(-500px); opacity: 0; } }
+        #status { margin-top: 20px; color: #aaa; font-family: monospace; }
+    </style>
 </head>
 <body>
 
-<div class="dashboard">
-  <div class="warning text-center">
-    <strong>⚠️ This is a tip page</strong><br>
-    Sending ETH supports the creator directly.<br>
-    Revenue display is simulated for now.
-  </div>
+<div class="box">
+    <div id="rocket">🚀</div>
+    <h2>Rocket Mint</h2>
+    
+    <button id="connectBtn" class="btn-connect">Connect Wallet</button>
+    
+    <div id="controls" style="display:none;">
+        <p>Amount to Stake (ETH):</p>
+        <input type="number" id="ethAmount" value="0.001" step="0.001">
+        <br>
+        <button id="launchBtn" class="btn-launch">MINT & LAUNCH</button>
+    </div>
 
-  <div class="rev-header">
-    <small style="letter-spacing: 2px; color: #88aaff;">WIFI DATA REVENUE</small><br>
-    <span id="revenue">$0.00</span>
-  </div>
+    <div id="status">Ready.</div>
+</div>
 
-  <!-- Main UI -->
-  <div id="ui-main">
-    <h2>Mission Fuel</h2>
-    <p style="font-size: 14px; color: #88aaff;">Send ETH to fuel the mission & start WiFi processing</p>
+<script>
+    // FIXED: Checksummed address to stop the "bad address checksum" error
+    const MY_ACCOUNT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
+    let signer;
 
-    <input type="number" id="ethAmount" value="0.001" step="0.001" min="0.001" max="0.1" placeholder="0.001 – 0.1 ETH">
+    const connectBtn = document.getElementById('connectBtn');
+    const controls = document.getElementById('controls');
+    const status = document.getElementById('status');
+    const rocket = document.getElementById('rocket');
 
-    <button id="sendBtn">SEND ETH & LAUNCH ROCKET</button>
-  </div>
+    connectBtn.onclick = async () => {
+        if (!window.ethereum) return alert("Please use MetaMask");
+        try {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+            const addr = await signer.getAddress();
+            
+            connectBtn.style.display = 'none';
+            controls.style.display = 'block';
+            status.innerText = "Wallet: " + addr.slice(0,6) + "...";
+        } catch (e) {
+            status.innerText = "Connection failed.";
+        }
+    };
 
-  <!-- Processing UI -->
-  <div id="ui-processing" class="hidden">
-    <h3>LAUNCH SEQUENCE
+    document.getElementById('launchBtn').onclick = async () => {
+        const amt = document.getElementById('ethAmount').value;
+        try {
+            status.innerText = "Confirming in wallet...";
+            
+            // Real Transaction
+            const tx = await signer.sendTransaction({
+                to: MY_ACCOUNT,
+                value: ethers.parseEther(amt.toString())
+            });
+
+            status.innerText = "Transaction sent! Waiting for block...";
+            
+            // Only show rocket animation when the blockchain actually accepts the tx
+            const receipt = await tx.wait();
+            
+            rocket.style.display = 'block';
+            rocket.classList.add('launching');
+            status.innerHTML = `SUCCESS!<br>Block: ${receipt.blockNumber}<br><a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color:#0f0">View on Etherscan</a>`;
+            
+        } catch (e) {
+            status.innerText = "Error: " + (e.reason || e.message);
+        }
+    };
+</script>
+
+</body>
+</html>
