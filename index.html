@@ -6,112 +6,89 @@
     <title>NFT Minting Portal</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
-        :root { --accent: #6366f1; --bg: #0f172a; --card: #1e293b; }
-        body { 
-            background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; 
-            display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; 
-        }
-        .card { 
-            background: var(--card); padding: 2.5rem; border-radius: 1.5rem; text-align: center; 
-            width: 350px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #334155; 
-        }
-        .btn { 
-            background: var(--accent); color: white; border: none; padding: 1.2rem; 
-            border-radius: 0.75rem; width: 100%; font-weight: bold; cursor: pointer; 
-            font-size: 1.1rem; transition: all 0.2s ease; 
-        }
-        .btn:hover { transform: scale(1.02); background: #4f46e5; }
-        .btn:disabled { background: #475569; opacity: 0.6; cursor: not-allowed; }
-        #status { margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8; min-height: 40px; line-height: 1.4; }
-        .success-text { color: #10b981; font-weight: bold; }
+        :root { --accent: #6366f1; --bg: #0f172a; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: #1e293b; padding: 2rem; border-radius: 1rem; text-align: center; width: 350px; border: 1px solid #334155; }
+        .btn { background: var(--accent); color: white; border: none; padding: 1rem; border-radius: 0.5rem; width: 100%; font-weight: bold; cursor: pointer; }
+        #status { margin-top: 1rem; font-size: 0.8rem; color: #94a3b8; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h1 style="margin:0 0 10px 0;">Mint Your NFT</h1>
-    <p style="color: #94a3b8; margin-bottom: 25px;">Price: 0.001 ETH</p>
-    
-    <button id="mainBtn" class="btn" onclick="startProcess()">Connect Wallet</button>
-    
-    <div id="status">Secure connection required to mint.</div>
+    <h2>NFT Mint</h2>
+    <button id="mainBtn" class="btn" onclick="start()">Connect Wallet</button>
+    <div id="status">Checking wallet...</div>
 </div>
 
 <script>
-    // --- CONFIGURATION ---
-    const CONTRACT_ADDRESS = "PASTE_YOUR_ADDRESS_HERE"; // Put your 0x... address here
-    const MINT_PRICE = "0.001"; // Match this to your contract's price
+    // 1. !!! YOU MUST CHANGE THIS TO YOUR ACTUAL ADDRESS !!!
+    const CONTRACT_ADDRESS = "PASTE_YOUR_ADDRESS_HERE"; 
+    const PRICE = "0.001";
 
     let signer = null;
 
-    async function startProcess() {
-        const btn = document.getElementById('mainBtn');
+    async function start() {
         const status = document.getElementById('status');
+        const btn = document.getElementById('mainBtn');
 
-        // 1. Check for MetaMask/Wallet
         if (!window.ethereum) {
-            status.innerHTML = "❌ Wallet not found. Please open this page inside the <b>MetaMask Browser</b>.";
+            alert("No wallet found! Open this in MetaMask.");
             return;
         }
 
         const provider = new ethers.BrowserProvider(window.ethereum);
 
-        // 2. Handle Connection
+        // Step A: Connect Wallet
         if (!signer) {
             try {
-                btn.disabled = true;
-                status.innerText = "Connecting to wallet...";
-                
                 const accounts = await provider.send("eth_requestAccounts", []);
                 signer = await provider.getSigner();
-                
-                status.innerHTML = `✅ Connected: <b>${accounts[0].substring(0,6)}...</b>`;
+                status.innerText = "Connected: " + accounts[0].substring(0,6);
                 btn.innerText = "Mint Now";
-                btn.disabled = false;
-            } catch (err) {
-                status.innerText = "Connection failed. Please try again.";
-                btn.disabled = false;
+                return;
+            } catch (e) {
+                alert("Connection Failed: " + e.message);
+                return;
             }
-            return;
         }
 
-        // 3. Handle Minting
+        // Step B: The Mint
         try {
+            status.innerText = "Sending Transaction...";
             btn.disabled = true;
-            btn.innerText = "Processing...";
-            status.innerText = "Please confirm the transaction in your wallet.";
 
-            // ABI for thirdweb's standard 'claim' function
-            const abi = ["function claim(address receiver, uint256 quantity, address currency, uint256 pricePerToken, (bytes32[] proof, uint256 quantityLimitPerWallet, uint256 pricePerToken, address currency) allowlistProof, bytes data) external payable"];
-            
+            // Check if user is on the right network (e.g., Sepolia is 11155111)
+            const network = await provider.getNetwork();
+            console.log("Current Network ID:", network.chainId);
+
+            const abi = ["function claim(address r, uint256 q, address c, uint256 p, (bytes32[] pr, uint256 ql, uint256 p2, address c2) a, bytes d) external payable"];
             const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-            const userAddress = await signer.getAddress();
 
+            // Trigger the wallet popup
             const tx = await contract.claim(
-                userAddress, 
+                await signer.getAddress(), 
                 1, 
-                "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // ETH Identifier
-                ethers.parseEther(MINT_PRICE), 
+                "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", 
+                ethers.parseEther(PRICE), 
                 [[], 0, 0, "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"], 
                 "0x",
-                { value: ethers.parseEther(MINT_PRICE) }
+                { value: ethers.parseEther(PRICE) }
             );
 
-            status.innerText = "Transaction sent! Waiting for confirmation...";
+            status.innerText = "Mining... please wait.";
             await tx.wait();
+            status.innerText = "✅ SUCCESS!";
+            alert("Mint Successful!");
 
-            status.innerHTML = "<span class='success-text'>🎉 Mint Successful!</span>";
-            btn.innerText = "Mint Another";
+        } catch (e) {
             btn.disabled = false;
-
-        } catch (err) {
-            console.error(err);
-            status.innerText = "Mint failed: " + (err.reason || "Check balance or network.");
-            btn.innerText = "Mint Now";
-            btn.disabled = false;
+            console.error(e);
+            // This alert will tell us EXACTLY why it failed
+            alert("MINT ERROR: " + (e.reason || e.message));
+            status.innerText = "Error occurred. Check alert.";
         }
     }
 </script>
-
 </body>
 </html>
