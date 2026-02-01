@@ -1,29 +1,27 @@
 document.getElementById('pay-btn').onclick = async () => {
-    // Check if we are inside the MetaMask Browser or a desktop browser
-    if (typeof window.ethereum !== 'undefined') {
+    // Check if the wallet provider exists (e.g., inside MetaMask Browser)
+    if (window.ethereum) {
         try {
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             
+            // Trigger the ETH payment
             const tx = await signer.sendTransaction({
-                to: HOUSE_WALLET,
-                value: ethers.parseEther(ENTRY_FEE)
+                to: "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650", 
+                value: ethers.parseEther("0.01")
             });
-
+            
             document.getElementById('status').innerText = "Confirming...";
             await tx.wait();
-
             document.getElementById('ui-overlay').style.display = 'none';
             gameActive = true;
         } catch (e) {
-            alert("Payment Error: " + e.message);
+            alert("Error: " + e.message);
         }
     } else {
-        // IPHONE FIX: If no wallet found, redirect to MetaMask's internal browser
-        const dappUrl = window.location.href.split('//')[1]; // Get your site URL without https://
-        const metamaskAppDeepLink = `https://metamask.app.link/dapp/${dappUrl}`;
-        
-        status.innerText = "Opening in MetaMask...";
-        window.location.href = metamaskAppDeepLink;
+        // IPHONE FIX: Redirect the user to MetaMask's internal browser
+        // This takes your current URL and opens it in the MetaMask app automatically
+        const dappUrl = window.location.href.split('//')[1]; 
+        window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
     }
 };
