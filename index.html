@@ -1,1 +1,102 @@
-<!DOCTYPE html> <html> <head> <title>NFT Mint</title> <link rel="stylesheet" href="styles.css"> <script src="https://cdn.ethers.io/lib/ethers-5.x.min.js"></script> </head> <body> <div class="container"> <h1>NFT Minting Application</h1> <div> <input type="text" id="walletAddress" placeholder="Enter your ENS name or Ethereum wallet address"> <button id="mintButton">Mint Now</button> </div> <div id="errorMessage" class="error"></div> <div id="successMessage" class="success"></div> </div> <script> const mintButton = document.getElementById("mintButton"); const walletInput = document.getElementById("walletAddress"); const errorMessage = document.getElementById("errorMessage"); const successMessage = document.getElementById("successMessage"); mintButton.addEventListener("click", async () => { const userInput = walletInput.value.trim(); errorMessage.textContent = ""; successMessage.textContent = ""; try { validateInput(userInput); successMessage.textContent = "Minting started..."; await simulateMinting(userInput); successMessage.textContent = "Minting successful! Check your wallet."; } catch (error) { errorMessage.textContent = error.message; } }); function validateInput(input) { const validENSRegex = /^([_]{1}[a-z0-9]+|[a-z0-9]+)(\.eth)?$/i; const validWalletRegex = /^0x[a-fA-F0-9]{40}$/; if (!validENSRegex.test(input) && !validWalletRegex.test(input)) { throw new Error("Invalid input! Enter a valid ENS name (e.g., 'name.eth') or a valid Ethereum wallet address (0x...)."); } } async function simulateMinting(address) { return new Promise((resolve) => setTimeout(resolve, 2000)); } </script> </body> </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mint Your NFT Adventure</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.ethers.io/lib/ethers-5.x.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>🔥 Mint Your Legendary NFT 🔥</h1>
+            <p>Create treasures for the blockchain realm!</p>
+        </header>
+        <main>
+            <div class="mint-box">
+                <input
+                    type="text"
+                    id="walletAddress"
+                    placeholder="Enter your ENS or Ethereum wallet (e.g., name.eth)"
+                />
+                <button id="mintButton"><span>⚡ Mint Now ⚡</span></button>
+                <div id="errorMessage" class="alert hidden"></div>
+                <div id="successMessage" class="alert hidden"></div>
+            </div>
+            <div class="loading hidden" id="loadingSpinner">
+                <img src="spinner.gif" alt="Minting in progress">
+                <p>✨ Your NFT journey is underway... ✨</p>
+            </div>
+        </main>
+        <footer>
+            <p>Made with 💎 and magic.</p>
+            <button id="themeToggle">🌓 Toggle Theme</button>
+        </footer>
+    </div>
+
+    <script>
+        const mintButton = document.getElementById("mintButton");
+        const walletInput = document.getElementById("walletAddress");
+        const errorMessage = document.getElementById("errorMessage");
+        const successMessage = document.getElementById("successMessage");
+        const loadingSpinner = document.getElementById("loadingSpinner");
+        const themeToggle = document.getElementById("themeToggle");
+        let darkMode = true;
+
+        mintButton.addEventListener("click", async () => {
+            const userInput = walletInput.value.trim();
+            hideAlerts();
+            displayElement(loadingSpinner, true);
+
+            try {
+                validateInput(userInput);
+
+                // Simulate Minting Process
+                mintButton.disabled = true;
+                await simulateMinting(userInput);
+
+                displayAlert(successMessage, "🎉 Mint Successful! The blockchain welcomes your treasure.", true);
+            } catch (error) {
+                displayAlert(errorMessage, error.message, true);
+            } finally {
+                mintButton.disabled = false;
+                displayElement(loadingSpinner, false);
+            }
+        });
+
+        themeToggle.addEventListener("click", () => {
+            document.body.classList.toggle("dark-mode", darkMode);
+            document.body.classList.toggle("light-mode", !darkMode);
+            darkMode = !darkMode;
+        });
+
+        function validateInput(input) {
+            const validENSRegex = /^([_]{1}[a-z0-9]+|[a-z0-9]+)(\.eth)?$/i;
+            const validWalletRegex = /^0x[a-fA-F0-9]{40}$/;
+
+            if (!validENSRegex.test(input) && !validWalletRegex.test(input)) {
+                throw new Error("⚠️ Invalid input! Use a valid ENS (name.eth) or Ethereum wallet (0x...).");
+            }
+        }
+
+        async function simulateMinting(address) {
+            return new Promise((resolve) => setTimeout(resolve, 3000));
+        }
+
+        function displayAlert(element, message, show) {
+            element.textContent = message;
+            element.classList.toggle("hidden", !show);
+        }
+
+        function displayElement(element, show) {
+            element.classList.toggle("hidden", !show);
+        }
+
+        function hideAlerts() {
+            errorMessage.classList.add("hidden");
+            successMessage.classList.add("hidden");
+        }
+    </script>
+</body>
+</html>
