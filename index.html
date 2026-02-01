@@ -1,13 +1,29 @@
-<div id="ui-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; pointer-events: auto;">
+<div id="ui-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); pointer-events: auto;">
     
-    <div style="text-align: center; background: #1e293b; padding: 40px; border-radius: 24px; border: 1px solid #334155; width: 90%; max-width: 350px;">
-        <h1 style="color: #22d3ee; font-size: 2rem; font-weight: 900; margin-bottom: 10px;">VOID RUNNER</h1>
-        <p id="status" style="color: #94a3b8; margin-bottom: 30px; font-size: 0.9rem;">Cost: 0.01 ETH</p>
+    <div style="text-align: center; width: 85%;">
+        <h1 style="color: cyan; font-size: 2.5rem; font-weight: 900; margin-bottom: 20px;">VOID RUNNER</h1>
         
-        <button id="pay-btn" onclick="void(0)" style="cursor: pointer; -webkit-tap-highlight-color: transparent; width: 100%; background: #ffffff; color: #000000; font-weight: 800; padding: 18px; border-radius: 12px; border: none; font-size: 1.1rem; position: relative; z-index: 10000; pointer-events: auto !important;">
-            CONNECT & PAY
+        <button id="pay-btn" style="
+            cursor: pointer; 
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            width: 100%; 
+            max-width: 300px;
+            background: white; 
+            color: black; 
+            padding: 20px; 
+            border-radius: 15px; 
+            font-size: 1.2rem; 
+            font-weight: bold;
+            border: none;
+            position: relative;
+            z-index: 100000;
+            pointer-events: auto !important;
+        ">
+            CONNECT & PAY ETH
         </button>
+        
+        <p id="status" style="color: #666; margin-top: 15px; font-family: monospace;">Waiting for touch...</p>
     </div>
 </div>
 
-<div id="game-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></div>
+<div id="game-container" style="position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none;"></div>
