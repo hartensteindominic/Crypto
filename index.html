@@ -1,23 +1,84 @@
-<button id="connectButton" class="connect-btn">Connect Wallet</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legendary Ethereum Mint</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+    <style>
+        :root { --primary: #7000ff; --secondary: #00d4ff; --bg: #050505; }
+        body {
+            margin: 0; font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg); color: white;
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+        }
+        .app-container {
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px);
+            padding: 2.5rem; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 100%; max-width: 420px; text-align: center; position: relative; overflow: hidden;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        }
+        .connect-btn {
+            background: transparent; border: 1px solid var(--secondary); color: var(--secondary);
+            padding: 10px 20px; border-radius: 30px; cursor: pointer; margin-bottom: 25px; transition: 0.3s;
+            font-weight: bold; position: absolute; top: 20px; right: 20px; font-size: 0.8rem;
+        }
+        .connect-btn:hover { background: var(--secondary); color: black; }
+        .wallet-active { border-color: #6bffb8; color: #6bffb8; }
+        
+        h1 { font-size: 2.2rem; margin-top: 40px; background: linear-gradient(to right, #00d4ff, #ff00c8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        input {
+            width: 100%; padding: 15px; margin: 20px 0; border-radius: 12px; border: 1px solid #333;
+            background: rgba(0,0,0,0.5); color: white; box-sizing: border-box;
+        }
+        #mintButton {
+            width: 100%; padding: 18px; border-radius: 12px; border: none;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: white; font-weight: 900; cursor: pointer;
+        }
+        .spaceship { font-size: 60px; position: absolute; bottom: -80px; left: 42%; transition: 2.5s; pointer-events: none; }
+        .launch { transform: translateY(-130vh); }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <button id="connectButton" class="connect-btn">CONNECT WALLET</button>
+        <div id="rocket" class="spaceship">🚀</div>
+        <h1>LEGENDARY MINT</h1>
+        <p style="color: #888;">Forge your legacy on Ethereum</p>
+        <input type="text" id="walletAddress" placeholder="Connect wallet to fill address...">
+        <button id="mintButton">⚡ MINT NOW ⚡</button>
+        <div id="status" style="margin-top: 20px;"></div>
+    </div>
 
-<style>
-    .connect-btn {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid var(--secondary);
-        color: var(--secondary);
-        padding: 8px 20px;
-        border-radius: 20px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: 0.3s;
-        float: right;
-    }
-    .connect-btn:hover {
-        background: var(--secondary);
-        color: black;
-    }
-    .wallet-active {
-        border-color: #6bffb8;
-        color: #6bffb8;
-    }
-</style>
+    <script>
+        const connectBtn = document.getElementById("connectButton");
+        const mintBtn = document.getElementById("mintButton");
+        const walletInput = document.getElementById("walletAddress");
+        const rocket = document.getElementById("rocket");
+
+        async function connect() {
+            if (window.ethereum) {
+                const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+                walletInput.value = accounts[0];
+                connectBtn.innerText = "CONNECTED ✅";
+                connectBtn.classList.add("wallet-active");
+            } else { alert("Install MetaMask!"); }
+        }
+
+        function launch() {
+            if (!walletInput.value.startsWith('0x')) return alert("Connect wallet first!");
+            mintBtn.innerText = "MINTING...";
+            rocket.classList.add("launch");
+            setTimeout(() => {
+                document.getElementById("status").innerHTML = "🎉 SUCCESS! <br>Check your wallet for the transaction.";
+                mintBtn.innerText = "MINTED";
+            }, 2500);
+        }
+
+        connectBtn.addEventListener("click", connect);
+        mintBtn.addEventListener("click", launch);
+    </script>
+</body>
+</html>
