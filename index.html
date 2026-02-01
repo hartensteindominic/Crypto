@@ -1,50 +1,115 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Support My Project</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batcoin Terminal</title>
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
     <style>
-        body { background: #000; color: #00d4ff; font-family: sans-serif; text-align: center; padding-top: 100px; }
-        .pay-box { border: 2px solid #00d4ff; padding: 40px; display: inline-block; border-radius: 20px; background: #111; }
-        button { background: #00d4ff; border: none; padding: 15px 30px; font-weight: bold; border-radius: 10px; cursor: pointer; font-size: 1.2rem; }
-        input { padding: 10px; border-radius: 5px; border: none; width: 80%; margin-bottom: 20px; text-align: center; }
+        /* 2026 NEO-BRUTALIST STYLING */
+        :root { --bat-cyan: #00d4ff; --bat-glow: rgba(0, 212, 255, 0.4); }
+        
+        body {
+            background-color: #050505;
+            background-image: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
+            color: white;
+            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0; overflow: hidden;
+        }
+
+        .bat-card {
+            background: rgba(20, 20, 20, 0.8);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 50px;
+            border-radius: 30px;
+            text-align: center;
+            width: 380px;
+            box-shadow: 0 0 50px rgba(0,0,0,1), 0 0 20px var(--bat-glow);
+            position: relative;
+        }
+
+        h1 {
+            font-size: 2.5rem; letter-spacing: 4px; margin-bottom: 5px;
+            text-shadow: 0 0 15px var(--bat-cyan);
+            background: linear-gradient(to bottom, #fff, var(--bat-cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .price-tag { font-size: 1.2rem; color: #888; margin-bottom: 30px; }
+
+        /* THE ANIMATED BUTTON */
+        #payButton {
+            background: var(--bat-cyan);
+            color: #000;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.2rem;
+            font-weight: 900;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px var(--bat-cyan);
+            animation: pulse 2s infinite;
+            width: 100%;
+        }
+
+        #payButton:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px var(--bat-cyan);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(0, 212, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
+        }
+
+        #status { margin-top: 20px; font-size: 0.9rem; color: #555; }
     </style>
 </head>
 <body>
 
-    <div class="pay-box">
-        <h1>Send Payment</h1>
-        <p>Enter ETH Amount:</p>
-        <input type="number" id="amount" value="0.01" step="0.01">
-        <br>
-        <button id="payButton">PAY WITH WALLET</button>
-        <p id="status"></p>
+    <div class="bat-card">
+        <div style="font-size: 50px; margin-bottom: 10px;">🦇</div>
+        <h1>BATCOIN</h1>
+        <div class="price-tag">0.01 ETH + GAS</div>
+        
+        <button id="payButton">INITIATE PAYMENT</button>
+        
+        <div id="status">Secure P2P Encrypted Link</div>
     </div>
 
     <script>
         const payButton = document.getElementById('payButton');
-        // REPLACE THIS WITH YOUR REAL WALLET ADDRESS
-        const myWallet = "0xYourActualWalletAddressHere"; 
+        // REPLACE WITH YOUR REAL WALLET
+        const myWallet = "0xYourWalletAddressHere"; 
 
         payButton.onclick = async () => {
-            if (!window.ethereum) return alert("Please install MetaMask");
-            
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            const signer = provider.getSigner();
-            
-            const amount = document.getElementById('amount').value;
+            if (!window.ethereum) return alert("Please install MetaMask!");
             
             try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                
+                payButton.innerText = "WAITING FOR APPROVAL...";
+                
                 const tx = await signer.sendTransaction({
                     to: myWallet,
-                    value: ethers.utils.parseEther(amount)
+                    value: ethers.utils.parseEther("0.01")
                 });
-                document.getElementById('status').innerText = "Sending money...";
+
+                payButton.innerText = "PROCESSING...";
                 await tx.wait();
-                document.getElementById('status').innerText = "Payment Received! Thank you.";
+                
+                payButton.style.background = "#39ff14";
+                payButton.innerText = "SUCCESS ✅";
+                document.getElementById('status').innerText = "Funds confirmed on-chain.";
             } catch (err) {
-                alert("Payment failed or cancelled.");
+                payButton.innerText = "INITIATE PAYMENT";
+                alert("Transaction Cancelled.");
             }
         };
     </script>
