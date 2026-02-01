@@ -3,101 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3 Art Store</title>
+    <title>Crypto Art Gallery</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    
     <style>
-        :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        
-        nav { width: 100%; max-width: 800px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 50px; }
-        .btn { cursor: pointer; border: none; border-radius: 8px; font-weight: 600; transition: 0.3s; padding: 10px 20px; }
-        .btn-connect { background: var(--primary); color: white; }
-        .btn-buy { background: #10b981; color: white; width: 100%; margin-top: 15px; }
-        .btn:disabled { background: #475569; cursor: not-allowed; }
-
-        .art-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 900px; }
-        .art-card { background: var(--card); padding: 15px; border-radius: 16px; border: 1px solid #334155; text-align: center; }
-        .art-card img { width: 100%; border-radius: 12px; height: 250px; object-fit: cover; }
-        
-        #wallet-info { font-size: 0.85rem; color: #94a3b8; }
-        .status-msg { margin-top: 20px; padding: 10px; border-radius: 5px; font-size: 0.9rem; }
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 50px; }
+        .card { border: 1px solid #333; padding: 20px; border-radius: 15px; max-width: 300px; margin: 20px auto; background: #1a1a1a; }
+        img { width: 100%; border-radius: 10px; }
+        button { 
+            background: #6200ee; color: white; border: none; padding: 12px 24px; 
+            border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px;
+        }
+        button:hover { background: #3700b3; }
+        #status { margin-top: 20px; color: #bb86fc; }
     </style>
 </head>
 <body>
 
-    <nav>
-        <h2>🖼️ ArtVault</h2>
-        <div>
-            <button id="connectBtn" class="btn btn-connect" onclick="connectWallet()">Connect Wallet</button>
-            <div id="wallet-info"></div>
-        </div>
-    </nav>
+    <h2>Digital Art Collection</h2>
+    <button id="connectBtn">Connect Wallet</button>
+    <p id="walletAddress"></p>
 
-    <div class="art-grid">
-        <div class="art-card">
-            <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&w=400" alt="Abstract Art">
-            <h3>Nebula Echoes</h3>
-            <p>0.005 ETH</p>
-            <button class="btn btn-buy" onclick="buyArtwork('0.005')">Purchase</button>
-        </div>
+    <div class="card">
+        <img src="https://via.placeholder.com/250" alt="Artwork">
+        <h3>"Neon Genesis"</h3>
+        <p>Price: 0.01 ETH</p>
+        <button id="buyBtn">Buy Artwork</button>
     </div>
 
-    <div id="status" class="status-msg"></div>
+    <p id="status"></p>
 
     <script>
         const destinationAddress = "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650";
-        let signer = null;
+        const itemPrice = "0.01"; // Price in ETH
 
+        let signer;
+        let provider;
+
+        // --- Connect Wallet Function ---
         async function connectWallet() {
-            if (!window.ethereum) {
-                alert("Please install MetaMask!");
-                return;
-            }
-
-            try {
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                signer = await provider.getSigner();
-                const address = await signer.getAddress();
-                const balance = await provider.getBalance(address);
-                const ethBalance = ethers.formatEther(balance);
-
-                document.getElementById('connectBtn').innerText = "Connected";
-                document.getElementById('wallet-info').innerHTML = `
-                    Addr: ${address.substring(0,6)}...${address.substring(38)} <br>
-                    Bal: ${parseFloat(ethBalance).toFixed(4)} ETH
-                `;
-                document.getElementById('status').innerText = "Wallet ready.";
-            } catch (err) {
-                console.error(err);
-                document.getElementById('status').innerText = "Connection failed.";
+            if (window.ethereum) {
+                try {
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    const accounts = await provider.send("eth_requestAccounts", []);
+                    signer = await provider.getSigner();
+                    
+                    document.getElementById('walletAddress').innerText = `Connected: ${accounts[0].substring(0,6)}...${accounts[0].substring(38)}`;
+                    document.getElementById('connectBtn').innerText = "Wallet Connected";
+                } catch (error) {
+                    console.error("User denied account access");
+                }
+            } else {
+                alert("Please install a crypto wallet like MetaMask!");
             }
         }
 
-        async function buyArtwork(amount) {
+        // --- Purchase Function ---
+        async function buyArtwork() {
             if (!signer) {
                 alert("Please connect your wallet first!");
                 return;
             }
 
-            const status = document.getElementById('status');
             try {
-                status.innerText = "Confirming transaction in wallet...";
+                document.getElementById('status').innerText = "Confirming transaction in your wallet...";
                 
+                // Sending the transaction
                 const tx = await signer.sendTransaction({
                     to: destinationAddress,
-                    value: ethers.parseEther(amount)
+                    value: ethers.parseEther(itemPrice)
                 });
 
-                status.innerText = "Transaction pending... checking blockchain.";
+                document.getElementById('status').innerText = "Transaction sent! Waiting for confirmation...";
+                
+                // Wait for the transaction to be mined
                 await tx.wait();
                 
-                status.innerText = "🎉 Success! Artwork purchased.";
-                alert("Payment Confirmed!");
-            } catch (err) {
-                status.innerText = "Transaction cancelled or failed.";
-                console.error(err);
+                document.getElementById('status').innerText = "Success! Artwork purchased.";
+                alert("Payment received! Check the console for tx hash.");
+                console.log("TX Hash:", tx.hash);
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status').innerText = "Transaction failed or cancelled.";
             }
         }
+
+        // Event Listeners
+        document.getElementById('connectBtn').addEventListener('click', connectWallet);
+        document.getElementById('buyBtn').addEventListener('click', buyArtwork);
     </script>
 </body>
 </html>
