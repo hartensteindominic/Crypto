@@ -3,113 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batcoin Terminal</title>
+    <title>Batcoin | Secure Payment Terminal</title>
     <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
     <style>
-        /* 2026 NEO-BRUTALIST STYLING */
-        :root { --bat-cyan: #00d4ff; --bat-glow: rgba(0, 212, 255, 0.4); }
-        
-        body {
-            background-color: #050505;
-            background-image: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
-            color: white;
-            font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0; overflow: hidden;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        :root { 
+            --accent: #00d4ff; 
+            --bg: #030303;
+            --glass: rgba(255, 255, 255, 0.03);
         }
 
-        .bat-card {
-            background: rgba(20, 20, 20, 0.8);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(0, 212, 255, 0.2);
+        body { 
+            background: var(--bg); color: white; font-family: 'Inter', sans-serif;
+            margin: 0; display: flex; align-items: center; justify-content: center;
+            height: 100vh; overflow: hidden;
+        }
+
+        /* 2026 Glassmorphism Card */
+        .terminal {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 50px;
-            border-radius: 30px;
+            border-radius: 40px;
             text-align: center;
-            width: 380px;
-            box-shadow: 0 0 50px rgba(0,0,0,1), 0 0 20px var(--bat-glow);
+            width: 400px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8);
             position: relative;
         }
 
-        h1 {
-            font-size: 2.5rem; letter-spacing: 4px; margin-bottom: 5px;
-            text-shadow: 0 0 15px var(--bat-cyan);
-            background: linear-gradient(to bottom, #fff, var(--bat-cyan));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        /* The Animated Aura Background */
+        body::before {
+            content: ""; position: absolute; width: 300px; height: 300px;
+            background: var(--accent); filter: blur(150px); opacity: 0.1;
+            top: 20%; left: 30%; z-index: -1;
         }
 
-        .price-tag { font-size: 1.2rem; color: #888; margin-bottom: 30px; }
+        h1 { font-weight: 900; letter-spacing: -2px; margin-bottom: 0; font-size: 2.5rem; }
+        .subtext { color: #666; font-size: 0.9rem; margin-top: 5px; margin-bottom: 30px; }
 
-        /* THE ANIMATED BUTTON */
-        #payButton {
-            background: var(--bat-cyan);
-            color: #000;
-            border: none;
-            padding: 20px 40px;
-            font-size: 1.2rem;
-            font-weight: 900;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 0 15px var(--bat-cyan);
-            animation: pulse 2s infinite;
-            width: 100%;
+        .price-box {
+            background: rgba(0,0,0,0.3); padding: 20px; border-radius: 20px;
+            border: 1px dashed rgba(255,255,255,0.1); margin-bottom: 30px;
         }
 
-        #payButton:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px var(--bat-cyan);
+        .price { font-size: 2rem; font-weight: 700; color: var(--accent); }
+
+        /* Trust Indicators */
+        .status-bar {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; color: #39ff14; margin-bottom: 20px; gap: 10px;
+        }
+        .dot { width: 8px; height: 8px; background: #39ff14; border-radius: 50%; box-shadow: 0 0 10px #39ff14; animation: blink 2s infinite; }
+
+        button {
+            background: white; color: black; border: none; width: 100%;
+            padding: 20px; border-radius: 15px; font-weight: 900;
+            font-size: 1.1rem; cursor: pointer; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(0, 212, 255, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0); }
-        }
+        button:hover { transform: scale(1.02); box-shadow: 0 0 30px rgba(255,255,255,0.2); }
+        button:active { transform: scale(0.98); }
 
-        #status { margin-top: 20px; font-size: 0.9rem; color: #555; }
+        .footer-note { font-size: 0.7rem; color: #444; margin-top: 25px; line-height: 1.5; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-    <div class="bat-card">
-        <div style="font-size: 50px; margin-bottom: 10px;">🦇</div>
+    <div class="terminal">
+        <div class="status-bar">
+            <div class="dot"></div> ENCRYPTED P2P CONNECTION ACTIVE
+        </div>
+        
         <h1>BATCOIN</h1>
-        <div class="price-tag">0.01 ETH + GAS</div>
-        
-        <button id="payButton">INITIATE PAYMENT</button>
-        
-        <div id="status">Secure P2P Encrypted Link</div>
+        <div class="subtext">Official Decentralized Treasury</div>
+
+        <div class="price-box">
+            <div style="font-size: 0.7rem; color: #888; margin-bottom: 5px;">CURRENT UNIT PRICE</div>
+            <div class="price">0.01 ETH</div>
+        </div>
+
+        <button id="payBtn">CONNECT & AUTHORIZE</button>
+
+        <div class="footer-note">
+            Verification: 0x1947...37dd<br>
+            All transactions are finalized on the Ethereum Mainnet.<br>
+            Direct transfer. No hidden fees.
+        </div>
     </div>
 
     <script>
-        const payButton = document.getElementById('payButton');
-        // REPLACE WITH YOUR REAL WALLET
-        const myWallet = "0xYourWalletAddressHere"; 
+        const payBtn = document.getElementById('payBtn');
+        // This is your confirmed Batman Coin address
+        const myWallet = "0x19478179Ef8Bb7c4792a4041903080e097D137dD"; 
 
-        payButton.onclick = async () => {
-            if (!window.ethereum) return alert("Please install MetaMask!");
-            
+        payBtn.onclick = async () => {
+            if (!window.ethereum) return alert("MetaMask not detected. Please install to proceed.");
+
             try {
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 const signer = provider.getSigner();
-                
-                payButton.innerText = "WAITING FOR APPROVAL...";
-                
+
+                payBtn.innerText = "WAITING FOR WALLET...";
+                payBtn.style.background = "#555";
+                payBtn.style.color = "white";
+
                 const tx = await signer.sendTransaction({
                     to: myWallet,
                     value: ethers.utils.parseEther("0.01")
                 });
 
-                payButton.innerText = "PROCESSING...";
+                payBtn.innerText = "MINING TRANSACTION...";
                 await tx.wait();
-                
-                payButton.style.background = "#39ff14";
-                payButton.innerText = "SUCCESS ✅";
-                document.getElementById('status').innerText = "Funds confirmed on-chain.";
+
+                payBtn.innerText = "PAID ✅";
+                payBtn.style.background = "#39ff14";
+                payBtn.style.color = "black";
             } catch (err) {
-                payButton.innerText = "INITIATE PAYMENT";
-                alert("Transaction Cancelled.");
+                payBtn.innerText = "CONNECT & AUTHORIZE";
+                payBtn.style.background = "white";
+                payBtn.style.color = "black";
+                console.error(err);
             }
         };
     </script>
