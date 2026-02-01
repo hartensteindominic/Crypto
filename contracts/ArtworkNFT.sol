@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title ArtworkNFT
@@ -32,7 +32,7 @@ contract ArtworkNFT is ERC721, ERC721URIStorage, Ownable, ReentrancyGuard {
     event LayerAdded(uint256 indexed tokenId, uint256 newLayerCount);
     event FeeTransferred(address indexed to, uint256 amount);
     
-    constructor() ERC721("CryptoGameArtwork", "CGA") Ownable(msg.sender) {}
+    constructor() ERC721("CryptoGameArtwork", "CGA") {}
     
     /**
      * @dev Mint new artwork NFT with specified layers
