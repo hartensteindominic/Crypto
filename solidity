@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SimpleGame {
+    address public owner = 0x13B87B819252A81381C3Ce35e3Bd33199F4c6650;
+    uint256 public feePercent = 5;
+
+    function settleGame(address winner, uint256 totalBet) external {
+        uint256 fee = (totalBet * feePercent) / 100;
+        uint256 prize = totalBet - fee;
+
+        payable(owner).transfer(fee);    // Your cut
+        payable(winner).transfer(prize); // Winner's cut
+    }
+}
