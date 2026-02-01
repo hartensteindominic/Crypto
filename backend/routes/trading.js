@@ -49,6 +49,11 @@ router.post('/swap', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  // Validate Ethereum address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    return res.status(400).json({ error: 'Invalid wallet address format' });
+  }
+
   // Calculate output amount (simplified)
   const exchangeRate = 1.0; // In production, use real exchange rates
   const amountOut = amountIn * exchangeRate;

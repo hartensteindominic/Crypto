@@ -15,6 +15,11 @@ router.post('/register', (req, res) => {
     return res.status(400).json({ error: 'Wallet address is required' });
   }
 
+  // Validate Ethereum address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    return res.status(400).json({ error: 'Invalid wallet address format' });
+  }
+
   const db = getDatabase();
   
   db.run(
@@ -22,6 +27,7 @@ router.post('/register', (req, res) => {
     [walletAddress.toLowerCase(), email, username],
     function(err) {
       if (err) {
+        db.close();
         if (err.message.includes('UNIQUE')) {
           return res.status(400).json({ error: 'Wallet address already registered' });
         }
@@ -37,10 +43,10 @@ router.post('/register', (req, res) => {
         userId: this.lastID,
         token
       });
+      
+      db.close();
     }
   );
-
-  db.close();
 });
 
 /**
@@ -53,6 +59,11 @@ router.post('/login', (req, res) => {
     return res.status(400).json({ error: 'Wallet address is required' });
   }
 
+  // Validate Ethereum address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+    return res.status(400).json({ error: 'Invalid wallet address format' });
+  }
+
   const db = getDatabase();
   
   db.get(
@@ -60,10 +71,12 @@ router.post('/login', (req, res) => {
     [walletAddress.toLowerCase()],
     (err, user) => {
       if (err) {
+        db.close();
         return res.status(500).json({ error: 'Database error' });
       }
 
       if (!user) {
+        db.close();
         return res.status(404).json({ error: 'User not found' });
       }
 
@@ -83,10 +96,10 @@ router.post('/login', (req, res) => {
         },
         token
       });
+      
+      db.close();
     }
   );
-
-  db.close();
 });
 
 /**
@@ -106,6 +119,7 @@ router.post('/kyc', authenticateToken, (req, res) => {
     ['verified', userId], // For demo purposes, auto-verify
     function(err) {
       if (err) {
+        db.close();
         return res.status(500).json({ error: 'Database error' });
       }
 
@@ -113,10 +127,10 @@ router.post('/kyc', authenticateToken, (req, res) => {
         message: 'KYC information submitted successfully',
         status: 'verified'
       });
+      
+      db.close();
     }
   );
-
-  db.close();
 });
 
 /**
@@ -132,10 +146,12 @@ router.get('/profile', authenticateToken, (req, res) => {
     [userId],
     (err, user) => {
       if (err) {
+        db.close();
         return res.status(500).json({ error: 'Database error' });
       }
 
       if (!user) {
+        db.close();
         return res.status(404).json({ error: 'User not found' });
       }
 
@@ -148,10 +164,10 @@ router.get('/profile', authenticateToken, (req, res) => {
         premiumAccount: user.premium_account === 1,
         createdAt: user.created_at
       });
+      
+      db.close();
     }
   );
-
-  db.close();
 });
 
 /**

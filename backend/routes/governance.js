@@ -147,31 +147,48 @@ router.post('/vote', (req, res) => {
             return res.status(400).json({ error: 'Voting period has ended' });
           }
 
-          // Update vote counts
-          const updateField = support === 1 ? 'for_votes' : 'against_votes';
-          const updateValue = support === 1 
-            ? proposal.for_votes + voteWeight 
-            : proposal.against_votes + voteWeight;
+          // Update vote counts safely without SQL injection
+          if (support === 1) {
+            db.run(
+              `UPDATE proposals SET for_votes = ? WHERE id = ?`,
+              [proposal.for_votes + voteWeight, proposalId],
+              function(err) {
+                if (err) {
+                  db.close();
+                  return res.status(500).json({ error: 'Database error' });
+                }
 
-          db.run(
-            `UPDATE proposals SET ${updateField} = ? WHERE id = ?`,
-            [updateValue, proposalId],
-            function(err) {
-              if (err) {
+                res.json({
+                  proposalId,
+                  support: 'for',
+                  voteWeight,
+                  message: 'Vote cast successfully'
+                });
+
                 db.close();
-                return res.status(500).json({ error: 'Database error' });
               }
+            );
+          } else {
+            db.run(
+              `UPDATE proposals SET against_votes = ? WHERE id = ?`,
+              [proposal.against_votes + voteWeight, proposalId],
+              function(err) {
+                if (err) {
+                  db.close();
+                  return res.status(500).json({ error: 'Database error' });
+                }
 
-              res.json({
-                proposalId,
-                support: support === 1 ? 'for' : 'against',
-                voteWeight,
-                message: 'Vote cast successfully'
-              });
+                res.json({
+                  proposalId,
+                  support: 'against',
+                  voteWeight,
+                  message: 'Vote cast successfully'
+                });
 
-              db.close();
-            }
-          );
+                db.close();
+              }
+            );
+          }
         }
       );
     }

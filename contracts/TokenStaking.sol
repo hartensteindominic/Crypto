@@ -98,7 +98,7 @@ contract TokenStaking is ReentrancyGuard, Ownable {
         if (block.timestamp < stakingTimestamp[msg.sender] + MIN_STAKE_DURATION) {
             uint256 fee = (amount * EARLY_UNSTAKE_FEE) / 100;
             actualAmount = amount - fee;
-            // Fee goes back to reward pool
+            // Fee transferred to contract owner
             rewardToken.transfer(owner(), fee);
         }
         
