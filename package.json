@@ -1,0 +1,22 @@
+{
+  "name": "crypto-game",
+  "version": "1.0.0",
+  "description": "A play-to-earn crypto game with smart contract integration",
+  "main": "index.js",
+  "scripts": {
+    "compile": "cd contracts && npx hardhat compile",
+    "deploy": "cd contracts && npx hardhat run scripts/deploy.js",
+    "frontend": "cd frontend && npm start",
+    "backend": "cd backend && npm start",
+    "install-all": "npm install && cd contracts && npm install && cd ../frontend && npm install && cd ../backend && npm install"
+  },
+  "keywords": [
+    "crypto",
+    "game",
+    "blockchain",
+    "nft",
+    "play-to-earn"
+  ],
+  "author": "",
+  "license": "MIT"
+}
