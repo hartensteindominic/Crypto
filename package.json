@@ -1,0 +1,28 @@
+{
+  "name": "crypto-game",
+  "version": "1.0.0",
+  "description": "Crypto game with Ethereum payments and NFT artwork",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js"
+  },
+  "keywords": [
+    "ethereum",
+    "crypto",
+    "game",
+    "nft",
+    "blockchain"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0",
+    "solc": "^0.8.20"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}
