@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Web3.js for wallet integration -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -94,6 +96,10 @@
             width: 100px;
             height: 100px;
         }
+        .wallet-form {
+            max-width: 400px;
+            margin: 20px auto;
+        }
         footer {
             background: #111;
             padding: 20px;
@@ -114,6 +120,10 @@
             bottom: 0;
             left: 0;
             transform: translateZ(-1px) scale(2);
+        }
+        #wallet-status {
+            margin-top: 10px;
+            font-style: italic;
         }
     </style>
 </head>
@@ -141,7 +151,7 @@
                 <div class="feature-card animate__animated animate__fadeIn">
                     <i class="fas fa-shield-alt fa-3x mb-3"></i>
                     <h3>Secure Payments</h3>
-                    <p>Integrated with PayPal and crypto wallets for safe transactions.</p>
+                    <p>Integrated with PayPal, crypto wallets, and Web3 for safe transactions.</p>
                 </div>
             </div>
             <div class="col-md-4">
@@ -151,29 +161,60 @@
                     <p>Looks stunning on any device, from mobile to desktop.</p>
                 </div>
             </div>
+            <div class="col-md-4">
+                <div class="feature-card animate__animated animate__fadeInLeft" style="animation-delay: 0.2s;">
+                    <i class="fas fa-wallet fa-3x mb-3"></i>
+                    <h3>Wallet Connect</h3>
+                    <p>Connect your Ethereum wallet and deposit directly.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card animate__animated animate__fadeIn" style="animation-delay: 0.4s;">
+                    <i class="fas fa-chart-line fa-3x mb-3"></i>
+                    <h3>Real-Time Feedback</h3>
+                    <p>Get instant transaction status and confirmations.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card animate__animated animate__fadeInRight" style="animation-delay: 0.6s;">
+                    <i class="fas fa-globe fa-3x mb-3"></i>
+                    <h3>Global Access</h3>
+                    <p>Support from anywhere with crypto or fiat.</p>
+                </div>
+            </div>
         </div>
         
         <div class="payment-section animate__animated animate__bounceIn">
             <h2>Make a Payment</h2>
-            <p>Choose your preferred method: Fiat or Crypto.</p>
+            <p>Choose your preferred method: Fiat, Static Crypto Wallets, or Connect Your Wallet for Direct Deposit.</p>
+            
             <!-- PayPal Form -->
+            <h3>Fiat Payment via PayPal</h3>
             <form action="https://www.paypal.com/donate" method="post" target="_top" class="mb-4">
                 <input type="hidden" name="hosted_button_id" value="YOUR_PAYPAL_BUTTON_ID_HERE" />
                 <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
             </form>
-            <a href="#" class="payment-button" onclick="alert('Payment simulated! Thank you!');">Pay with Fiat (Demo)</a>
             
-            <h3 class="mt-5">Or Donate Crypto</h3>
-            <div class="crypto-wallets">
+            <h3>Or Donate via Static Crypto Wallets</h3>
+            <div class="crypto-wallets mb-4">
                 <div class="wallet">
                     <img src="https://api.qrserver.com/v1/create-qr-code/?data=bitcoin:bc1qexamplewalletaddress&size=100x100" alt="BTC QR">
                     <p>BTC: bc1qexamplewalletaddress</p>
                 </div>
                 <div class="wallet">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?data=ethereum:0xExampleETHWalletAddress&size=100x100" alt="ETH QR">
-                    <p>ETH: 0xExampleETHWalletAddress</p>
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?data=0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb&size=100x100" alt="ETH QR">
+                    <p>ETH: 0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb</p>
                 </div>
                 <!-- Add more wallets as needed -->
+            </div>
+            
+            <h3>Connect Wallet and Deposit ETH Directly</h3>
+            <div class="wallet-form">
+                <button id="connect-wallet" class="payment-button mb-3">Connect Wallet</button>
+                <div id="wallet-status"></div>
+                <input type="number" id="amount" class="form-control mb-3" placeholder="Amount in ETH (e.g., 0.01)" step="0.001" min="0.001">
+                <button id="send-transaction" class="payment-button" disabled>Deposit ETH</button>
+                <p id="tx-status" class="mt-3"></p>
             </div>
         </div>
     </div>
@@ -201,4 +242,61 @@
                 detect_on: 'canvas',
                 events: { onhover: { enable: true, mode: 'repulse' } }
             },
-            retina_detect
+            retina_detect: true
+        });
+    </script>
+    <div id="particles-js" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: -1;"></div>
+    
+    <!-- Web3 Integration Script -->
+    <script>
+        const recipientAddress = '0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb';
+        let web3;
+        let userAccount;
+
+        const connectWalletBtn = document.getElementById('connect-wallet');
+        const sendTxBtn = document.getElementById('send-transaction');
+        const amountInput = document.getElementById('amount');
+        const walletStatus = document.getElementById('wallet-status');
+        const txStatus = document.getElementById('tx-status');
+
+        connectWalletBtn.addEventListener('click', async () => {
+            if (window.ethereum) {
+                try {
+                    web3 = new Web3(window.ethereum);
+                    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                    userAccount = accounts[0];
+                    walletStatus.textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+                    sendTxBtn.disabled = false;
+                    connectWalletBtn.textContent = 'Wallet Connected';
+                    connectWalletBtn.disabled = true;
+                } catch (error) {
+                    walletStatus.textContent = 'Connection failed: ' + error.message;
+                }
+            } else {
+                walletStatus.textContent = 'Please install MetaMask or another Ethereum wallet.';
+            }
+        });
+
+        sendTxBtn.addEventListener('click', async () => {
+            const amount = amountInput.value;
+            if (!amount || parseFloat(amount) <= 0) {
+                txStatus.textContent = 'Please enter a valid amount.';
+                return;
+            }
+            const weiAmount = web3.utils.toWei(amount, 'ether');
+
+            try {
+                txStatus.textContent = 'Sending transaction...';
+                const tx = await web3.eth.sendTransaction({
+                    from: userAccount,
+                    to: recipientAddress,
+                    value: weiAmount
+                });
+                txStatus.textContent = `Transaction successful! Hash: ${tx.transactionHash}`;
+            } catch (error) {
+                txStatus.textContent = 'Transaction failed: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>
