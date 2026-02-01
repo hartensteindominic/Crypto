@@ -1,68 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batman Coin Mint</title>
-    <script src="https://embed.bueno.art/button.js"></script>
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+<div id="mintTracker" style="margin-top: 15px; color: #00d4ff; font-weight: bold; font-size: 1.2rem;">
+    Total Minted: <span id="supplyCount">Loading...</span> / 100
+</div>
 
-    <style>
-        :root { --bat-blue: #00d4ff; --bat-purple: #7000ff; }
-        body { 
-            background: #050505; color: white; font-family: 'Segoe UI', sans-serif;
-            display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0;
-        }
-        .mint-card {
-            background: rgba(255, 255, 255, 0.03); border: 1px solid #333;
-            padding: 40px; border-radius: 24px; text-align: center; width: 350px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        h1 { font-size: 2rem; background: linear-gradient(to right, var(--bat-blue), var(--bat-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .stats { margin: 20px 0; font-weight: bold; color: var(--bat-blue); }
+<script>
+    async function updateMintCount() {
+        const address = "0x19478179Ef8Bb7c4792a4041903080e097D137dD";
+        const abi = ["function totalSupply() public view returns (uint256)"];
         
-        /* Styling the Bueno Button */
-        bueno-button::part(button) {
-            background: linear-gradient(45deg, var(--bat-purple), var(--bat-blue)) !important;
-            border-radius: 12px !important; width: 100% !important; padding: 18px !important;
-            font-weight: 900 !important; border: none !important; cursor: pointer !important;
-            color: white !important; text-transform: uppercase;
+        try {
+            // Using a public provider so users don't have to connect wallet just to see the count
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const contract = new ethers.Contract(address, abi, provider);
+            
+            const supply = await contract.totalSupply();
+            document.getElementById("supplyCount").innerText = supply.toString();
+        } catch (error) {
+            console.log("Connect wallet to see live count");
+            document.getElementById("supplyCount").innerText = "0";
         }
-    </style>
-</head>
-<body>
+    }
 
-    <div class="mint-card">
-        <h1>BATMAN COIN</h1>
-        <p style="color: #888;">Forge your legend on the chain</p>
-        
-        <div class="stats">
-            Minted: <span id="supply">...</span> / 100
-        </div>
-
-        <bueno-button 
-            contract="0x19478179Ef8Bb7c4792a4041903080e097D137dD" 
-            ethereum-goal="1">
-        </bueno-button>
-    </div>
-
-    <script>
-        async function getSupply() {
-            const address = "0x19478179Ef8Bb7c4792a4041903080e097D137dD";
-            const abi = ["function totalSupply() view returns (uint256)"];
-            try {
-                // Connect to Ethereum to read the number of coins minted
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const contract = new ethers.Contract(address, abi, provider);
-                const count = await contract.totalSupply();
-                document.getElementById('supply').innerText = count.toString();
-            } catch (e) {
-                document.getElementById('supply').innerText = "0";
-            }
-        }
-        // Check every 10 seconds
-        setInterval(getSupply, 10000);
-        getSupply();
-    </script>
-</body>
-</html>
+    // Refresh count every 30 seconds
+    setInterval(updateMintCount, 30000);
+    updateMintCount();
+</script>
