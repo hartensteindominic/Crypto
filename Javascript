@@ -1,0 +1,17 @@
+async function legitMint() {
+    const contractAddress = "0xYOUR_DEPLOYED_ADDRESS_HERE";
+    const abi = [ "function mint() public payable" ]; // Simplied ABI
+    
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const signer = provider.getSigner();
+    const contract = new ethers.Contract(contractAddress, abi, signer);
+
+    try {
+        // This line is what triggers the REAL MetaMask payment popup
+        const tx = await contract.mint({ value: ethers.utils.parseEther("0") }); 
+        await tx.wait(); // Wait for the blockchain to confirm
+        alert("NFT is officially in your wallet!");
+    } catch (error) {
+        console.error("Minting failed", error);
+    }
+}
