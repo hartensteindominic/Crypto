@@ -3,21 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web3 Network Switcher</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f4f4f9; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-        #dbg { margin-top: 1rem; color: #d9534f; font-size: 0.9rem; font-weight: bold; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1rem; }
-        button:hover { background: #0056b3; }
-    </style>
+    <title>SwiftBridge | Secure Cross-Chain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-slate-900 text-white flex items-center justify-center h-screen">
 
-    <div class="card">
-        <h2>DApp Portal</h2>
-        <button id="connectBtn">Switch to Mainnet</button>
-        <div id="dbg"></div>
+    <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+        <h2 class="text-2xl font-bold mb-6 text-center">SwiftBridge</h2>
+        
+        <button id="connectBtn" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-semibold transition-all mb-6">
+            Connect Wallet
+        </button>
+
+        <div class="space-y-4">
+            <div class="bg-slate-700 p-4 rounded-xl">
+                <label class="text-xs text-slate-400 uppercase">From Ethereum</label>
+                <input id="amountIn" type="number" placeholder="0.0" class="w-full bg-transparent text-xl outline-none mt-1">
+            </div>
+
+            <div class="flex justify-center -my-2">
+                <div class="bg-blue-600 p-2 rounded-full border-4 border-slate-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="white" viewBox="0 0 256 256"><path d="M205.66,149.66l-72,72a8,8,0,0,1-11.32,0l-72-72a8,8,0,0,1,11.32-11.32L120,196.69V40a8,8,0,0,1,16,0V196.69l58.34-58.35a8,8,0,0,1,11.32,11.32Z"></path></svg>
+                </div>
+            </div>
+
+            <div class="bg-slate-700 p-4 rounded-xl">
+                <label class="text-xs text-slate-400 uppercase">To Polygon (Receive)</label>
+                <div id="amountOut" class="text-xl text-slate-300 mt-1 italic">Fetching best rate...</div>
+            </div>
+        </div>
+
+        <button id="actionBtn" disabled class="w-full bg-slate-600 text-slate-400 cursor-not-allowed py-4 rounded-xl font-bold text-lg mt-6 transition-all">
+            Enter Amount
+        </button>
+
+        <p id="dbg" class="mt-4 text-center text-sm font-medium"></p>
     </div>
 
     <script src="app.js"></script>
