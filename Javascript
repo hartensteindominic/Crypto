@@ -1,17 +1,23 @@
 async function legitMint() {
-    const contractAddress = "0xYOUR_DEPLOYED_ADDRESS_HERE";
-    const abi = [ "function mint() public payable" ]; // Simplied ABI
+    const contractAddress = "0xYOUR_DEPLOYED_CONTRACT_ADDRESS";
+    const abi = ["function mint() public payable"]; // Tells the site how to talk to the contract
     
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner();
     const contract = new ethers.Contract(contractAddress, abi, signer);
 
     try {
-        // This line is what triggers the REAL MetaMask payment popup
-        const tx = await contract.mint({ value: ethers.utils.parseEther("0") }); 
-        await tx.wait(); // Wait for the blockchain to confirm
-        alert("NFT is officially in your wallet!");
-    } catch (error) {
-        console.error("Minting failed", error);
+        // This triggers the ACTUAL MetaMask popup asking for 0.01 ETH
+        const tx = await contract.mint({ 
+            value: ethers.utils.parseEther("0.01") 
+        });
+        
+        // Show rocket while waiting for blockchain
+        document.getElementById("rocket").classList.add("launch");
+        
+        await tx.wait(); // Wait for confirmation
+        alert("Success! The NFT is now in your wallet.");
+    } catch (err) {
+        console.error("User cancelled or transaction failed", err);
     }
 }
