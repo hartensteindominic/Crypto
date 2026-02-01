@@ -71,11 +71,12 @@ contract CryptoGame is Ownable, ReentrancyGuard {
         // Add to recipient
         playerBalances[to] += transferAmount;
         
-        // Transfer fee to fee wallet
+        // Update total fees collected
+        totalFeesCollected += fee;
+        
+        // Transfer fee to fee wallet (interactions last)
         (bool feeSuccess, ) = FEE_WALLET.call{value: fee}("");
         require(feeSuccess, "Fee transfer failed");
-        
-        totalFeesCollected += fee;
         
         emit FeeTransferred(FEE_WALLET, fee);
     }
