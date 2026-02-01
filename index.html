@@ -2,39 +2,135 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoPlay | Play & Earn</title>
+    <title>CryptoRunner 3D - Pay to Play</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "ethers": "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.min.js"
+            }
+        }
+    </script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020617; font-family: sans-serif; }
+        #overlay { position: absolute; z-index: 100; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); }
+    </style>
 </head>
-<body class="bg-gray-900 text-white font-sans">
+<body>
 
-    <nav class="p-6 flex justify-between items-center border-b border-gray-800">
-        <h1 class="text-2xl font-bold text-blue-400">CryptoPlay</h1>
-        <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full transition">
-            Connect Wallet
-        </button>
-    </nav>
-
-    <main class="flex flex-col items-center justify-center mt-10">
-        <div id="game-ui" class="text-center mb-6">
-            <h2 class="text-4xl mb-2">Super Square Jump</h2>
-            <p class="text-gray-400">Entry Fee: 1 MATIC | Winner takes all (minus 5% house fee)</p>
-        </div>
-
-        <div id="game-canvas-container" class="relative border-4 border-gray-700 rounded-lg overflow-hidden bg-black">
-            <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div id="overlay">
+        <div class="bg-slate-900 border border-slate-700 p-10 rounded-3xl shadow-2xl text-center max-w-sm">
+            <h1 class="text-3xl font-black text-cyan-400 mb-2 italic">VOID RUNNER</h1>
+            <p class="text-slate-400 mb-6 uppercase text-[10px] tracking-widest font-bold">1 MATIC Entry Fee</p>
             
-            <div id="overlay" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
-                <button id="startGame" class="bg-green-500 hover:bg-green-600 text-white text-xl font-bold py-4 px-8 rounded-lg">
-                    Pay & Play
+            <div id="wallet-section">
+                <button id="connect-btn" class="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-cyan-400 transition-all mb-4">
+                    CONNECT WALLET
                 </button>
+                <p id="status" class="text-xs text-slate-500 font-mono">MetaMask Required</p>
             </div>
         </div>
+    </div>
 
-        <div id="status" class="mt-4 text-sm text-yellow-500"></div>
-    </main>
+    <div id="game-canvas"></div>
 
-    <script src="app.js"></script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { ethers } from 'ethers';
+
+        // --- 1. SETTINGS & YOUR WALLET ---
+        const HOUSE_ADDRESS = "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650"; // FROM YOUR SCREENSHOT
+        const ENTRY_FEE = "1.0"; // Amount in MATIC
+        let gameActive = false;
+        let player, scene, camera, renderer;
+        const keys = {};
+
+        // --- 2. THE 3D GAME ENGINE ---
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x020617, 5, 30);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('game-canvas').appendChild(renderer.domElement);
+
+            // Floor & Lighting
+            const grid = new THREE.GridHelper(200, 50, 0x06b6d4, 0x1e293b);
+            scene.add(grid);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+            // Player (A Glowing Diamond)
+            const geo = new THREE.OctahedronGeometry(1);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x06b6d4 });
+            player = new THREE.Mesh(geo, mat);
+            player.position.y = 1;
+            scene.add(player);
+
+            camera.position.set(0, 5, 10);
+            camera.lookAt(player.position);
+            animate();
+        }
+
+        // --- 3. THE PAYMENT & WALLET LOGIC ---
+        const connectBtn = document.getElementById('connect-btn');
+        const statusText = document.getElementById('status');
+
+        connectBtn.onclick = async () => {
+            if (!window.ethereum) return alert("Please install MetaMask!");
+            
+            try {
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const address = await signer.getAddress();
+                
+                statusText.innerText = `Connected: ${address.slice(0,6)}...`;
+                connectBtn.innerText = `PAY ${ENTRY_FEE} MATIC TO START`;
+
+                // Handle the actual payment
+                connectBtn.onclick = async () => {
+                    statusText.innerText = "Processing Payment...";
+                    try {
+                        const tx = await signer.sendTransaction({
+                            to: HOUSE_ADDRESS,
+                            value: ethers.parseEther(ENTRY_FEE)
+                        });
+                        
+                        statusText.innerText = "Confirming on Blockchain...";
+                        await tx.wait(); // THE GATE: Code pauses here until you are paid!
+                        
+                        document.getElementById('overlay').style.display = 'none';
+                        gameActive = true;
+                    } catch (e) {
+                        statusText.innerText = "Payment Failed or Cancelled";
+                    }
+                };
+            } catch (e) {
+                statusText.innerText = "Connection Failed";
+            }
+        };
+
+        // --- 4. THE GAME LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if (gameActive) {
+                const speed = 0.15;
+                if (keys['w']) player.position.z -= speed;
+                if (keys['s']) player.position.z += speed;
+                if (keys['a']) player.position.x -= speed;
+                if (keys['d']) player.position.x += speed;
+                
+                // Camera follows player smoothly
+                camera.position.lerp(new THREE.Vector3(player.position.x, 5, player.position.z + 10), 0.1);
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
+        window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+        
+        init3D(); // Start the 3D renderer immediately (but controls stay locked)
+    </script>
 </body>
 </html>
