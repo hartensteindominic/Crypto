@@ -1,29 +1,63 @@
-<div id="ui-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); pointer-events: auto;">
-    
-    <div style="text-align: center; width: 85%;">
-        <h1 style="color: cyan; font-size: 2.5rem; font-weight: 900; margin-bottom: 20px;">VOID RUNNER</h1>
-        
-        <button id="pay-btn" style="
-            cursor: pointer; 
-            -webkit-tap-highlight-color: rgba(0,0,0,0);
-            width: 100%; 
-            max-width: 300px;
-            background: white; 
-            color: black; 
-            padding: 20px; 
-            border-radius: 15px; 
-            font-size: 1.2rem; 
-            font-weight: bold;
-            border: none;
-            position: relative;
-            z-index: 100000;
-            pointer-events: auto !important;
-        ">
-            CONNECT & PAY ETH
-        </button>
-        
-        <p id="status" style="color: #666; margin-top: 15px; font-family: monospace;">Waiting for touch...</p>
-    </div>
-</div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 50px 20px; }
+        #pay-btn { background: #00ffcc; color: #000; padding: 20px; width: 100%; border-radius: 10px; font-weight: bold; border: none; font-size: 1.2rem; cursor: pointer; }
+        #debug-log { margin-top: 30px; background: #222; padding: 10px; font-size: 10px; color: #0f0; text-align: left; height: 150px; overflow-y: scroll; border: 1px solid #444; }
+    </style>
+</head>
+<body>
 
-<div id="game-container" style="position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none;"></div>
+    <h1>VOID RUNNER</h1>
+    <button id="pay-btn">CONNECT & PAY</button>
+    <p id="status">Ready</p>
+
+    <div id="debug-log">Debug Log Initialized...<br></div>
+
+    <script>
+        const log = (msg) => { document.getElementById('debug-log').innerHTML += `> ${msg}<br>`; };
+        const status = document.getElementById('status');
+        const HOUSE_WALLET = "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650";
+
+        document.getElementById('pay-btn').addEventListener('click', async () => {
+            log("Button tapped.");
+
+            // FIX 1: Wait for injection
+            if (typeof window.ethereum === 'undefined') {
+                log("Error: window.ethereum is UNDEFINED.");
+                status.innerText = "No Wallet Detected.";
+                return;
+            }
+
+            try {
+                log("Wallet found. Requesting accounts...");
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                
+                // FIX 2: Explicitly request accounts first
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                log(`Connected: ${accounts[0].slice(0,6)}`);
+
+                const signer = await provider.getSigner();
+                log("Signer ready. Sending TX...");
+
+                const tx = await signer.sendTransaction({
+                    to: HOUSE_WALLET,
+                    value: ethers.parseUnits("0.01", "ether")
+                });
+
+                log(`TX Sent! Hash: ${tx.hash.slice(0,10)}`);
+                status.innerText = "Confirming...";
+                await tx.wait();
+                log("PAID! Game starting...");
+                
+            } catch (err) {
+                log(`CRITICAL ERROR: ${err.message}`);
+                status.innerText = "Check Debug Log Below.";
+            }
+        });
+    </script>
+</body>
+</html>
