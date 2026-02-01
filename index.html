@@ -9,51 +9,53 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #000; color: #0ff; overflow-x: hidden; }
-        header { background: linear-gradient(135deg, #001f3f, #0074d9); padding: 100px 20px; text-align: center; position: relative; }
-        h1 { font-size: 4rem; text-shadow: 0 0 30px #0ff; }
-        canvas { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-        .container { max-width: 1000px; margin: 40px auto; padding: 20px; background: rgba(0,0,0,0.6); border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid #0ff; }
-        .feature { background: rgba(0,255,255,0.1); border-radius: 15px; padding: 20px; margin: 15px; transition: all 0.3s; }
-        .feature:hover { transform: scale(1.05); box-shadow: 0 0 25px #0ff; }
-        .launch-btn { padding: 18px 50px; font-size: 1.5rem; background: linear-gradient(90deg, #ff4500, #ff8c00); border: none; border-radius: 50px; color: white; box-shadow: 0 0 30px #ff4500; cursor: pointer; transition: all 0.3s; }
-        .launch-btn:hover { transform: scale(1.1); box-shadow: 0 0 50px #ff4500; }
-        .launch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #status { min-height: 80px; font-size: 1.3rem; margin: 20px 0; text-align: center; }
-        .success { color: #0f0; text-shadow: 0 0 15px #0f0; }
-        .fail { color: #f00; text-shadow: 0 0 15px #f00; }
-        footer { text-align: center; padding: 30px; font-size: 0.9rem; background: #000; }
+        /* Same styles as before – keeping it concise */
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #000; color: #0ff; overflow: hidden; }
+        header { background: linear-gradient(135deg, #001f3f, #0074d9); padding: 80px 20px; text-align: center; z-index: 10; position: relative; }
+        h1 { font-size: 3.8rem; text-shadow: 0 0 30px #0ff; }
+        #gameCanvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+        .container { max-width: 1000px; margin: 30px auto; padding: 25px; background: rgba(0,0,0,0.65); border-radius: 20px; border: 1px solid #0ff; backdrop-filter: blur(12px); z-index: 10; position: relative; }
+        .launch-btn { padding: 16px 45px; font-size: 1.4rem; background: linear-gradient(90deg, #ff4500, #ff8c00); border: none; border-radius: 50px; color: white; box-shadow: 0 0 30px #ff4500; cursor: pointer; }
+        .launch-btn:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 0 50px #ff4500; }
+        .claim-nft-btn { padding: 14px 40px; background: linear-gradient(90deg, #00ff9d, #00b4db); border: none; border-radius: 50px; color: #000; font-weight: bold; box-shadow: 0 0 25px #00ff9d; margin-top: 20px; }
+        #rocket { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 5rem; z-index: 20; display: none; }
+        .launching { animation: rocketLaunch 4s ease-out forwards; }
+        @keyframes rocketLaunch { 0% { bottom: 30px; opacity: 1; } 100% { bottom: 120%; opacity: 0; transform: translateX(-50%) scale(1.8) rotate(15deg); } }
+        #status { min-height: 100px; font-size: 1.4rem; text-align: center; margin: 25px 0; }
+        footer { text-align: center; padding: 25px; background: #000; z-index: 10; position: relative; }
     </style>
 </head>
 <body>
-    <canvas id="stars"></canvas>
+    <canvas id="gameCanvas"></canvas>
+    <div id="rocket">🚀</div>
 
-    <header class="animate__animated animate__fadeInDown">
+    <header class="animate__animated animate__fadeIn">
         <h1>Crypto Rocket Launch</h1>
-        <p class="lead">Fuel the rocket → Launch to the stars → Support the mission!</p>
+        <p class="lead">Fuel → Launch → Claim Your Own Rocket NFT on Success!</p>
     </header>
 
-    <div class="container animate__animated animate__fadeIn">
-        <div class="row text-center">
-            <div class="col-md-4"><div class="feature"><i class="fas fa-rocket fa-4x mb-3" style="color:#ff4500"></i><h4>Instant Boost</h4><p>Fuel with ETH → Rocket launches immediately!</p></div></div>
-            <div class="col-md-4"><div class="feature"><i class="fas fa-star fa-4x mb-3" style="color:#0ff"></i><h4>Epic Rewards</h4><p>Success = cosmic celebration + project powered up!</p></div></div>
-            <div class="col-md-4"><div class="feature"><i class="fas fa-wallet fa-4x mb-3" style="color:#ff0"></i><h4>MetaMask Ready</h4><p>Connect → Choose fuel → Launch!</p></div></div>
+    <div class="container">
+        <div class="row text-center mb-5">
+            <div class="col-md-4"><div class="feature"><i class="fas fa-rocket fa-4x mb-3 text-danger"></i><h4>Live Blast-Off</h4><p>Watch rocket fly!</p></div></div>
+            <div class="col-md-4"><div class="feature"><i class="fas fa-certificate fa-4x mb-3 text-success"></i><h4>NFT Reward</h4><p>Keep your rocket forever!</p></div></div>
+            <div class="col-md-4"><div class="feature"><i class="fas fa-star fa-4x mb-3 text-warning"></i><h4>Cosmic Fun</h4><p>Success = explosion + NFT claim</p></div></div>
         </div>
 
-        <div class="text-center my-5">
-            <h3>Fuel the Rocket (ETH)</h3>
-            <p>Min: 0.001 ETH | Max: 0.1 ETH per launch (keeps it fun & safe!)</p>
+        <div class="text-center my-5" id="launchArea">
+            <h3>🚀 Fuel Amount (ETH) 🚀</h3>
+            <p>0.001 – 0.1 ETH per launch</p>
 
-            <button id="connect" class="btn btn-lg btn-info mb-3">Connect Wallet</button>
-            <div id="wallet-info" class="mb-3"></div>
+            <button id="connect" class="btn btn-lg btn-primary mb-3">Connect Wallet</button>
+            <div id="wallet-info" class="mb-4"></div>
 
-            <input type="number" id="fuel" class="form-control form-control-lg mb-3 bg-dark text-light border-info" placeholder="Fuel amount (0.001 - 0.1 ETH)" step="0.001" min="0.001" max="0.1">
+            <input type="number" id="fuel" class="form-control form-control-lg mb-3 bg-dark text-light" placeholder="0.001 – 0.1 ETH" step="0.001" min="0.001" max="0.1">
             <button id="launch" class="launch-btn" disabled>LAUNCH ROCKET!</button>
 
             <div id="status"></div>
+            <button id="claim-nft" class="claim-nft-btn" style="display:none;">CLAIM YOUR ROCKET NFT! 🎉</button>
         </div>
 
-        <!-- Fiat fallback -->
+        <!-- Fiat option -->
         <div class="text-center mt-5">
             <h4>Or Support with Fiat</h4>
             <form action="https://www.paypal.com/donate" method="post" target="_top">
@@ -64,94 +66,101 @@
     </div>
 
     <footer>
-        © 2026 Dominic • Powered by Ethereum • Launches are final & on-chain
+        © 2026 Dominic • Powered by Ethereum • All launches on-chain
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Starfield background
-        const canvas = document.getElementById('stars');
+        // Starfield + particles (same as before)
+        const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
 
         const stars = [];
-        for (let i = 0; i < 300; i++) {
-            stars.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                size: Math.random() * 2 + 0.5,
-                speed: Math.random() * 0.5 + 0.1
-            });
+        for (let i = 0; i < 400; i++) stars.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, size: Math.random()*2+0.5, speed: Math.random()*1+0.3 });
+
+        let particles = [];
+        function createExplosion(x, y, count=60) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random()-0.5)*18,
+                    vy: (Math.random()-0.5)*18 - 8,
+                    life: 1.2,
+                    decay: Math.random()*0.04 + 0.015,
+                    size: Math.random()*7 + 3,
+                    color: `hsl(${Math.random()*50 + 10}, 100%, 60%)`
+                });
+            }
         }
 
-        function drawStars() {
-            ctx.fillStyle = 'rgba(0,0,0,0.1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function animate() {
+            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#fff';
             stars.forEach(s => {
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-                ctx.fill();
-                s.y += s.speed;
-                if (s.y > canvas.height) s.y = 0;
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill();
+                s.y += s.speed; if (s.y > canvas.height) s.y = 0;
             });
-            requestAnimationFrame(drawStars);
+            particles = particles.filter(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+                p.x += p.vx; p.y += p.vy; p.life -= p.decay; p.size *= 0.97;
+                return p.life > 0;
+            });
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(animate);
         }
-        drawStars();
+        animate();
 
-        // Game logic
-        const RECIPIENT = '0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb'; // hidden
+        // Game
+        const RECIPIENT = '0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb';
         let web3, account;
         const connectBtn = document.getElementById('connect');
         const launchBtn = document.getElementById('launch');
         const fuelInput = document.getElementById('fuel');
         const status = document.getElementById('status');
         const walletInfo = document.getElementById('wallet-info');
+        const rocket = document.getElementById('rocket');
+        const claimBtn = document.getElementById('claim-nft');
 
         connectBtn.onclick = async () => {
-            if (!window.ethereum) return alert('Install MetaMask!');
+            if (!window.ethereum) return alert('MetaMask needed!');
             web3 = new Web3(window.ethereum);
             try {
-                const acc = await ethereum.request({ method: 'eth_requestAccounts' });
+                const acc = await ethereum.request({method: 'eth_requestAccounts'});
                 account = acc[0];
                 const chain = await web3.eth.getChainId();
-                walletInfo.innerHTML = `Connected: ${account.slice(0,6)}...${account.slice(-4)} ${chain !== 1 ? '<br><span style="color:#f00">(Switch to Ethereum Mainnet)</span>' : ''}`;
+                walletInfo.innerHTML = `Connected: ${account.slice(0,6)}...${account.slice(-4)} ${chain !== 1 ? '<br><span style="color:#ff4500">Switch to Mainnet!</span>' : ''}`;
                 launchBtn.disabled = false;
-                connectBtn.textContent = 'Wallet Ready';
+                connectBtn.textContent = 'Wallet Connected';
                 connectBtn.disabled = true;
-            } catch (e) { walletInfo.innerHTML = `<span style="color:#f00">Failed: ${e.message}</span>`; }
+            } catch (e) { walletInfo.innerHTML = `<span style="color:#ff4500">Error: ${e.message}</span>`; }
         };
 
         launchBtn.onclick = async () => {
-            const amtStr = fuelInput.value;
-            const amt = parseFloat(amtStr);
-            if (isNaN(amt) || amt < 0.001 || amt > 0.1) return status.innerHTML = '<span style="color:#ff0">Fuel must be 0.001–0.1 ETH!</span>';
+            const amt = parseFloat(fuelInput.value);
+            if (isNaN(amt) || amt < 0.001 || amt > 0.1) return status.innerHTML = '<span style="color:#ff0">Fuel 0.001–0.1 ETH only!</span>';
 
+            rocket.style.display = 'block';
+            rocket.classList.remove('launching');
             launchBtn.disabled = true;
-            status.innerHTML = '<span class="text-info">Igniting engines...</span>';
+            claimBtn.style.display = 'none';
+            status.innerHTML = '<span class="text-warning">Countdown: 3... 2... 1... IGNITION!</span>';
 
             try {
-                const wei = web3.utils.toWei(amtStr, 'ether');
+                const wei = web3.utils.toWei(fuelInput.value, 'ether');
                 const gas = await web3.eth.estimateGas({from: account, to: RECIPIENT, value: wei});
                 const tx = await web3.eth.sendTransaction({from: account, to: RECIPIENT, value: wei, gas});
 
-                // Game outcome: higher fuel = higher success chance
-                const successChance = Math.min(95, 50 + (amt * 450)); // 0.001→~50%, 0.1→95%
-                const isSuccess = Math.random() * 100 < successChance;
+                // Launch animation
+                setTimeout(() => rocket.classList.add('launching'), 800);
 
-                if (isSuccess) {
-                    status.innerHTML = `<span class="success animate__animated animate__tada">LAUNCH SUCCESS! Rocket to the stars!<br>Tx: <a href="https://etherscan.io/tx/${tx.transactionHash}" target="_blank" style="color:#0f0">${tx.transactionHash.slice(0,10)}...</a></span>`;
-                } else {
-                    status.innerHTML = `<span class="fail animate__animated animate__shakeX">CRASH! Needs more fuel next time...<br>Tx still sent: <a href="https://etherscan.io/tx/${tx.transactionHash}" target="_blank" style="color:#f00">${tx.transactionHash.slice(0,10)}...</a></span>`;
-                }
-            } catch (e) {
-                status.innerHTML = `<span style="color:#f00">Launch aborted: ${e.message}</span>`;
-            } finally {
-                launchBtn.disabled = false;
-            }
-        };
-    </script>
-</body>
-</html>
+                setTimeout(() => {
+                    const success = Math.random() < (0.5 + amt * 4.5); // higher fuel = better odds
+                    if (success) {
+                        createExplosion(canvas.width/2, 150, 80);
+                        status.innerHTML = `<span class="success animate__animated animate__heartBeat">ORBIT REACHED! 🎉<br>Tx: <a href="https://etherscan.io/tx/${tx
