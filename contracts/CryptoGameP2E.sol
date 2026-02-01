@@ -2,12 +2,12 @@
 pragma solidity ^0.8.19;
 
 /**
- * @title CryptoGame
+ * @title CryptoGameP2E
  * @dev A play-to-earn game contract with fee collection and resource minting
  * @notice The owner wallet is hardcoded and cannot be changed after deployment.
  * Ensure the owner wallet address is correct before deploying to mainnet.
  */
-contract CryptoGame {
+contract CryptoGameP2E {
     // Owner wallet that receives all fees
     // NOTE: This address is immutable and cannot be changed after deployment
     address public constant OWNER_WALLET = 0x13B87B819252A81381C3Ce35e3Bd33199F4c6650;

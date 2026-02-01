@@ -4,10 +4,10 @@
  */
 
 // Task timing constants
-const MIN_TASK_INTERVAL = 5000; // 5 seconds
-const MAX_TASK_INTERVAL = 5000; // 5 seconds
-const MIN_TASK_DURATION = 2000; // 2 seconds
-const MAX_TASK_DURATION = 3000; // 3 seconds
+const MIN_TASK_INTERVAL = 5000;  // 5 seconds
+const MAX_TASK_INTERVAL = 10000; // 10 seconds
+const MIN_TASK_DURATION = 2000;  // 2 seconds
+const MAX_TASK_DURATION = 3000;  // 3 seconds
 
 class ChildAgent {
     constructor(id, role, parentAI) {
