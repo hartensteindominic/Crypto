@@ -1,33 +1,60 @@
+// CONFIGURATION
+const HOUSE_WALLET = "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650";
+const ENTRY_FEE = "0.01"; // ETH
+let gameActive = false;
+
+// UI ELEMENTS
 const payBtn = document.getElementById('pay-btn');
+const statusText = document.getElementById('status');
 
-payBtn.addEventListener('click', async (e) => {
-    e.preventDefault(); // Stop any default Safari behavior
+// THE TROUBLESHOOTER FUNCTION
+async function handleConnection() {
+    console.log("Button Clicked");
 
-    // 1. Check if we are ALREADY inside a Web3 browser (like MetaMask Mobile)
+    // 1. ARE WE ON MOBILE?
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    // 2. CHECK IF WE ARE IN THE METAMASK BROWSER ALREADY
     if (window.ethereum) {
         try {
+            statusText.innerText = "Wallet Detected. Connecting...";
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             
-            // Trigger the transaction
+            // Payment logic
             const tx = await signer.sendTransaction({
-                to: "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650",
-                value: ethers.parseEther("0.01")
+                to: HOUSE_WALLET,
+                value: ethers.parseEther(ENTRY_FEE)
             });
+
+            statusText.innerText = "Confirming on ETH Network...";
+            await tx.wait(); // Pauses until paid
             
-            await tx.wait();
-            gameActive = true;
+            // SUCCESS: Unlock Game
             document.getElementById('ui-overlay').style.display = 'none';
+            gameActive = true; 
+            if(window.init3D) window.init3D(); // Start 3D engine
+
         } catch (err) {
-            alert("Payment failed: " + err.message);
+            console.error(err);
+            statusText.innerText = "User Rejected or Error.";
         }
-    } else {
-        // 2. We are in Safari. We MUST jump to the MetaMask App.
-        // This is the "Deep Link" magic.
+    } 
+    // 3. IF NO WALLET (TYPICAL ON IPHONE SAFARI)
+    else if (isMobile) {
+        statusText.innerText = "Redirecting to MetaMask...";
+        
+        // This is the Deep Link magic
+        // It takes your current URL and opens it INSIDE the MetaMask App
         const currentUrl = window.location.href.split('//')[1];
         const metamaskAppUrl = `https://metamask.app.link/dapp/${currentUrl}`;
         
-        // This forces the iPhone to show the "Open in MetaMask?" popup
         window.location.href = metamaskAppUrl;
+    } else {
+        statusText.innerText = "Please install MetaMask extension.";
     }
-});
+}
+
+// Ensure the button is clickable even if layers overlap
+payBtn.addEventListener('click', handleConnection);
+payBtn.style.pointerEvents = "auto"; 
