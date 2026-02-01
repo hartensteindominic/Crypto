@@ -1,27 +1,21 @@
-// 1. Check if provider exists
-if (!window.ethereum) {
-    dbg.innerText = "Please install MetaMask or another Web3 wallet.";
-    return;
-}
+// Install: npm install @lifi/sdk
+import { Lifi } from '@lifi/sdk';
 
-// 2. Standardize comparison (Hex 0x1 is decimal 1)
-const targetChainId = '0x1'; 
+const lifi = new Lifi({ integrator: 'Your_App_Name' });
 
-if (window.ethereum.networkVersion !== '1') {
-    try {
-        await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: targetChainId }], 
-        });
-    } catch (switchError) {
-        // This error code indicates that the chain has not been added to MetaMask.
-        if (switchError.code === 4902) {
-            dbg.innerText = "Ethereum Mainnet is missing from your wallet provider.";
-            // Optionally: Trigger wallet_addEthereumChain here if it were a custom L2
-        } else if (switchError.code === 4001) {
-            dbg.innerText = "User rejected the network switch.";
-        } else {
-            dbg.innerText = `Switch Error: ${switchError.message}`;
-        }
-    }
+async function startHighRevenueBridge(amount, fromChain, toChain, userAddress) {
+    // This finds the best route and includes YOUR fee
+    const quoteRequest = {
+        fromChain: fromChain, // e.g., 1 (Mainnet)
+        toChain: toChain,     // e.g., 137 (Polygon)
+        fromToken: '0x...',   // USDT
+        toToken: '0x...',     // USDC
+        fromAmount: amount,   // User's amount
+        fromAddress: userAddress,
+        fee: 0.003            // <--- THIS IS YOUR 0.3% REVENUE
+    };
+
+    const route = await lifi.getQuote(quoteRequest);
+    // Now you just execute the route with the user's signature
+    await lifi.executeRoute(window.ethereum, route);
 }
