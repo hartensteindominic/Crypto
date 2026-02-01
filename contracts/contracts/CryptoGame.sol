@@ -4,9 +4,12 @@ pragma solidity ^0.8.19;
 /**
  * @title CryptoGame
  * @dev A play-to-earn game contract with fee collection and resource minting
+ * @notice The owner wallet is hardcoded and cannot be changed after deployment.
+ * Ensure the owner wallet address is correct before deploying to mainnet.
  */
 contract CryptoGame {
     // Owner wallet that receives all fees
+    // NOTE: This address is immutable and cannot be changed after deployment
     address public constant OWNER_WALLET = 0x13B87B819252A81381C3Ce35e3Bd33199F4c6650;
     
     // Fee amounts
@@ -45,14 +48,16 @@ contract CryptoGame {
     /**
      * @dev Mint resources for the player
      * @param amount Amount of resources to mint
+     * @notice Follows checks-effects-interactions pattern for security
      */
     function mintResources(uint256 amount) external payable {
         require(amount > 0, "Amount must be greater than 0");
         require(msg.value >= MINT_RESOURCE_FEE, "Insufficient fee");
         
+        // Effects: Update state before external call
         playerResources[msg.sender] += amount;
         
-        // Transfer fee to owner wallet
+        // Interactions: Transfer fee to owner wallet
         (bool success, ) = OWNER_WALLET.call{value: msg.value}("");
         require(success, "Fee transfer failed");
         
@@ -64,11 +69,13 @@ contract CryptoGame {
      * @dev Mint an NFT with specified attributes
      * @param name Name of the NFT
      * @param power Power level of the NFT
+     * @notice Follows checks-effects-interactions pattern for security
      */
     function mintNFT(string memory name, uint256 power) external payable {
         require(msg.value >= MINT_NFT_FEE, "Insufficient fee for NFT minting");
         require(power > 0 && power <= 100, "Power must be between 1 and 100");
         
+        // Effects: Update state before external call
         uint256 nftId = nextNFTId++;
         
         NFT memory newNFT = NFT({
@@ -82,7 +89,7 @@ contract CryptoGame {
         nfts[nftId] = newNFT;
         playerNFTs[msg.sender].push(nftId);
         
-        // Transfer fee to owner wallet
+        // Interactions: Transfer fee to owner wallet
         (bool success, ) = OWNER_WALLET.call{value: msg.value}("");
         require(success, "Fee transfer failed");
         
@@ -94,14 +101,16 @@ contract CryptoGame {
      * @dev Perform a game action (e.g., battle, quest completion)
      * @param actionType Type of action being performed
      * @param scoreGained Score points gained from this action
+     * @notice Follows checks-effects-interactions pattern for security
      */
     function performGameAction(string memory actionType, uint256 scoreGained) external payable {
         require(msg.value >= GAME_ACTION_FEE, "Insufficient fee for game action");
         
+        // Effects: Update state before external call
         playerScore[msg.sender] += scoreGained;
         totalActionsPerformed[msg.sender] += 1;
         
-        // Transfer fee to owner wallet
+        // Interactions: Transfer fee to owner wallet
         (bool success, ) = OWNER_WALLET.call{value: msg.value}("");
         require(success, "Fee transfer failed");
         
@@ -112,15 +121,17 @@ contract CryptoGame {
     /**
      * @dev Use resources to boost score
      * @param resourceAmount Amount of resources to use
+     * @notice Follows checks-effects-interactions pattern for security
      */
     function useResources(uint256 resourceAmount) external payable {
         require(msg.value >= GAME_ACTION_FEE, "Insufficient fee");
         require(playerResources[msg.sender] >= resourceAmount, "Insufficient resources");
         
+        // Effects: Update state before external call
         playerResources[msg.sender] -= resourceAmount;
         playerScore[msg.sender] += resourceAmount * 10; // 10 points per resource
         
-        // Transfer fee to owner wallet
+        // Interactions: Transfer fee to owner wallet
         (bool success, ) = OWNER_WALLET.call{value: msg.value}("");
         require(success, "Fee transfer failed");
         

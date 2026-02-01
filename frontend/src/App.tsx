@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import { ethers } from 'ethers';
 import WalletConnect from './components/WalletConnect';
@@ -21,7 +21,11 @@ const CONTRACT_ABI = [
 ];
 
 // Contract address - update this after deployment
-const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS || "0x0000000000000000000000000000000000000000";
+const CONTRACT_ADDRESS = process.env.REACT_APP_CONTRACT_ADDRESS;
+
+if (!CONTRACT_ADDRESS || CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+  console.warn('Contract address not configured. Please set REACT_APP_CONTRACT_ADDRESS in .env file');
+}
 
 interface PlayerStats {
   resources: bigint;
@@ -93,7 +97,7 @@ function App() {
   };
 
   // Load player stats
-  const loadPlayerStats = async (playerAddress: string, contractInstance: ethers.Contract) => {
+  const loadPlayerStats = useCallback(async (playerAddress: string, contractInstance: ethers.Contract) => {
     try {
       const stats = await contractInstance.getPlayerStats(playerAddress);
       setPlayerStats({
@@ -114,14 +118,14 @@ function App() {
     } catch (err: any) {
       console.error('Error loading stats:', err);
     }
-  };
+  }, []);
 
   // Refresh stats
-  const refreshStats = async () => {
+  const refreshStats = useCallback(async () => {
     if (contract && account) {
       await loadPlayerStats(account, contract);
     }
-  };
+  }, [contract, account, loadPlayerStats]);
 
   // Mint resources
   const mintResources = async (amount: number) => {
@@ -218,13 +222,11 @@ function App() {
   useEffect(() => {
     // Auto-refresh stats every 30 seconds
     const interval = setInterval(() => {
-      if (contract && account) {
-        refreshStats();
-      }
+      refreshStats();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [contract, account]);
+  }, [refreshStats]);
 
   return (
     <div className="App">
@@ -263,7 +265,7 @@ function App() {
         </>
       )}
 
-      {!account && (
+      {!account && CONTRACT_ADDRESS && (
         <div className="wallet-info">
           <h2>Welcome to Crypto Game!</h2>
           <p>Connect your wallet to start playing</p>
@@ -274,9 +276,18 @@ function App() {
         </div>
       )}
 
+      {!account && !CONTRACT_ADDRESS && (
+        <div className="error-message">
+          <h2>Configuration Required</h2>
+          <p>Contract address is not configured.</p>
+          <p>Please deploy the smart contract and set REACT_APP_CONTRACT_ADDRESS in your .env file.</p>
+          <p>See QUICKSTART.md for instructions.</p>
+        </div>
+      )}
+
       <div className="footer">
         <p>Powered by Ethereum Smart Contracts</p>
-        <p>Contract: {CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000" ? "Not deployed" : CONTRACT_ADDRESS}</p>
+        <p>Contract: {!CONTRACT_ADDRESS || CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000" ? "Not configured" : CONTRACT_ADDRESS}</p>
       </div>
     </div>
   );

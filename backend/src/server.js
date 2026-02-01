@@ -11,7 +11,16 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage for leaderboard (in production, use a database)
+// In-memory storage for leaderboard
+// ⚠️ WARNING: This is NOT suitable for production use!
+// - All data will be LOST when the server restarts
+// - No data persistence between deployments
+// - Limited scalability for large player bases
+// 
+// For production, replace with a database solution:
+// - PostgreSQL: Relational database with excellent performance
+// - MongoDB: Document database for flexible schema
+// - Redis: Fast in-memory database with persistence
 let leaderboard = [];
 
 // Routes
