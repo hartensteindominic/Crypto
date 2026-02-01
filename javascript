@@ -1,33 +1,27 @@
-const payBtn = document.getElementById('pay-btn');
-const gameContainer = document.getElementById('game-container');
+// 1. Check if provider exists
+if (!window.ethereum) {
+    dbg.innerText = "Please install MetaMask or another Web3 wallet.";
+    return;
+}
 
-// IPHONE HACK: Use 'touchstart' instead of 'click'
-payBtn.addEventListener('touchstart', async (e) => {
-    e.preventDefault(); // Prevents the 'ghost click'
-    console.log("iPhone Touch Detected");
+// 2. Standardize comparison (Hex 0x1 is decimal 1)
+const targetChainId = '0x1'; 
 
-    if (window.ethereum) {
-        try {
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            
-            // Payment logic...
-            const tx = await signer.sendTransaction({
-                to: "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650",
-                value: ethers.parseEther("0.01")
-            });
-            await tx.wait();
-
-            // UNLOCK GAME
-            document.getElementById('ui-overlay').style.display = 'none';
-            gameContainer.style.pointerEvents = "auto"; // Re-enable game controls
-            window.gameActive = true;
-        } catch (err) {
-            alert("Error: " + err.message);
+if (window.ethereum.networkVersion !== '1') {
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: targetChainId }], 
+        });
+    } catch (switchError) {
+        // This error code indicates that the chain has not been added to MetaMask.
+        if (switchError.code === 4902) {
+            dbg.innerText = "Ethereum Mainnet is missing from your wallet provider.";
+            // Optionally: Trigger wallet_addEthereumChain here if it were a custom L2
+        } else if (switchError.code === 4001) {
+            dbg.innerText = "User rejected the network switch.";
+        } else {
+            dbg.innerText = `Switch Error: ${switchError.message}`;
         }
-    } else {
-        // Redirect to MetaMask App
-        const url = window.location.href.replace(/^https?:\/\//, '');
-        window.location.href = `https://metamask.app.link/dapp/${url}`;
     }
-}, { passive: false });
+}
