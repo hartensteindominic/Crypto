@@ -1,47 +1,33 @@
-import { ethers } from 'ethers';
-
 const payBtn = document.getElementById('pay-btn');
-const status = document.getElementById('status');
+const gameContainer = document.getElementById('game-container');
 
-// Use 'touchstart' for iPhone to guarantee the event fires
-const triggerEvent = 'ontouchstart' in window ? 'touchstart' : 'click';
+// IPHONE HACK: Use 'touchstart' instead of 'click'
+payBtn.addEventListener('touchstart', async (e) => {
+    e.preventDefault(); // Prevents the 'ghost click'
+    console.log("iPhone Touch Detected");
 
-payBtn.addEventListener(triggerEvent, async (e) => {
-    e.preventDefault(); // Prevents double-firing on some browsers
-    console.log("Touch/Click detected on iPhone");
-
-    // 1. Check if we are inside MetaMask Browser
     if (window.ethereum) {
         try {
-            status.innerText = "Connecting...";
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             
-            status.innerText = "Paying 0.01 ETH...";
+            // Payment logic...
             const tx = await signer.sendTransaction({
                 to: "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650",
                 value: ethers.parseEther("0.01")
             });
-
-            status.innerText = "Confirming...";
             await tx.wait();
-            
+
+            // UNLOCK GAME
             document.getElementById('ui-overlay').style.display = 'none';
-            window.gameActive = true; 
+            gameContainer.style.pointerEvents = "auto"; // Re-enable game controls
+            window.gameActive = true;
         } catch (err) {
-            status.innerText = "Error: " + err.message.slice(0, 20);
+            alert("Error: " + err.message);
         }
-    } 
-    // 2. We are in Safari: Force deep link
-    else {
-        status.innerText = "Opening MetaMask...";
-        const rawUrl = window.location.href.replace(/^https?:\/\//, '');
-        // The 'dapp://' protocol is often faster than the https link on iOS
-        window.location.href = `dapp://${rawUrl}`;
-        
-        // Fallback if dapp:// fails after 2 seconds
-        setTimeout(() => {
-            window.location.href = `https://metamask.app.link/dapp/${rawUrl}`;
-        }, 2000);
+    } else {
+        // Redirect to MetaMask App
+        const url = window.location.href.replace(/^https?:\/\//, '');
+        window.location.href = `https://metamask.app.link/dapp/${url}`;
     }
 }, { passive: false });
