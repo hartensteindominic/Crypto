@@ -149,8 +149,8 @@ function runDiagnostics() {
         averageEfficiency: agents.length > 0 
             ? agents.reduce((sum, a) => sum + a.efficiency, 0) / agents.length 
             : 0,
-        uptime: Math.round((Date.now() - status.startTime) / 1000),
-        actionRate: status.actionCount / ((Date.now() - status.startTime) / 60000) // actions per minute
+        uptime: Math.round(status.uptime / 1000),
+        actionRate: status.actionCount / (status.uptime / 60000) // actions per minute
     };
 
     console.log('System Diagnostics:', diagnostics);

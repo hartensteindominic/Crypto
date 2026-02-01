@@ -217,8 +217,7 @@ class UIController {
      */
     clearActivityLog() {
         this.elements.activityLog.innerHTML = '';
-        this.parentAI.activityLog = [];
-        this.parentAI.log('Activity log cleared', 'info');
+        this.parentAI.clearActivityLog();
     }
 
     /**

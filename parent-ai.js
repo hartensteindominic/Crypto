@@ -119,7 +119,7 @@ class ParentAI {
             role = this.availableRoles[roleIndex];
         } else {
             // Prevent duplicate roles if configured
-            if (this.config.preventDuplicateRoles) {
+            if (this.ethicalLimits.preventDuplicateRoles) {
                 const usedRoles = this.childAgents.map(agent => agent.role.name);
                 const availableRoles = this.availableRoles.filter(r => !usedRoles.includes(r.name));
                 
@@ -276,6 +276,14 @@ class ParentAI {
      */
     getActivityLog() {
         return this.activityLog;
+    }
+
+    /**
+     * Clear activity log
+     */
+    clearActivityLog() {
+        this.activityLog = [];
+        this.log('Activity log cleared', 'info');
     }
 }
 
