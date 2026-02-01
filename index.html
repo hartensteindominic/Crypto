@@ -1,62 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ETH Game Gate</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 50px 20px; }
-        #pay-btn { background: #00ffcc; color: #000; padding: 20px; width: 100%; border-radius: 10px; font-weight: bold; border: none; font-size: 1.2rem; cursor: pointer; }
-        #debug-log { margin-top: 30px; background: #222; padding: 10px; font-size: 10px; color: #0f0; text-align: left; height: 150px; overflow-y: scroll; border: 1px solid #444; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #020617; font-family: sans-serif; overflow: hidden; }
+        
+        /* This container sits ABOVE everything else on the phone */
+        #mobile-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 999999; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #020617;
+            pointer-events: auto;
+        }
+
+        #pay-btn {
+            width: 80%;
+            max-width: 300px;
+            padding: 25px;
+            background: #22d3ee;
+            color: #000;
+            border: none;
+            border-radius: 20px;
+            font-size: 1.5rem;
+            font-weight: 900;
+            cursor: pointer;
+            /* iPhone fix: ensure it registers as a touch target */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #status {
+            margin-top: 20px;
+            color: #64748b;
+            font-size: 0.9rem;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 
-    <h1>VOID RUNNER</h1>
-    <button id="pay-btn">CONNECT & PAY</button>
-    <p id="status">Ready</p>
-
-    <div id="debug-log">Debug Log Initialized...<br></div>
+    <div id="mobile-gate">
+        <h1 style="color: white; margin-bottom: 40px;">VOID RUNNER</h1>
+        <button id="pay-btn">PAY 0.01 ETH</button>
+        <p id="status">Tap to Connect Wallet</p>
+    </div>
 
     <script>
-        const log = (msg) => { document.getElementById('debug-log').innerHTML += `> ${msg}<br>`; };
-        const status = document.getElementById('status');
         const HOUSE_WALLET = "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650";
+        const btn = document.getElementById('pay-btn');
+        const status = document.getElementById('status');
 
-        document.getElementById('pay-btn').addEventListener('click', async () => {
-            log("Button tapped.");
+        async function startProcess() {
+            status.innerText = "Checking for Wallet...";
 
-            // FIX 1: Wait for injection
-            if (typeof window.ethereum === 'undefined') {
-                log("Error: window.ethereum is UNDEFINED.");
-                status.innerText = "No Wallet Detected.";
-                return;
+            // 1. Check if we are in MetaMask browser
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    
+                    // Trigger account request
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    status.innerText = "Connected! Awaiting Payment...";
+
+                    const signer = await provider.getSigner();
+                    
+                    // The actual ETH transaction
+                    const tx = await signer.sendTransaction({
+                        to: HOUSE_WALLET,
+                        value: ethers.parseEther("0.01")
+                    });
+
+                    status.innerText = "Confirming Transaction...";
+                    await tx.wait();
+
+                    // SUCCESS
+                    document.getElementById('mobile-gate').style.display = 'none';
+                    alert("Payment Verified. Game Unlocked!");
+                    
+                } catch (err) {
+                    status.innerText = "Error: " + err.message.substring(0, 30);
+                }
+            } else {
+                // 2. If in Safari, Deep Link to MetaMask
+                status.innerText = "Opening in MetaMask App...";
+                const cleanUrl = window.location.href.replace(/^https?:\/\//, '');
+                window.location.href = `https://metamask.app.link/dapp/${cleanUrl}`;
             }
+        }
 
-            try {
-                log("Wallet found. Requesting accounts...");
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                
-                // FIX 2: Explicitly request accounts first
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                log(`Connected: ${accounts[0].slice(0,6)}`);
+        // iPhone Fix: We listen for both 'touchend' and 'click' 
+        // to ensure the event is captured regardless of browser lag
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            startProcess();
+        });
 
-                const signer = await provider.getSigner();
-                log("Signer ready. Sending TX...");
-
-                const tx = await signer.sendTransaction({
-                    to: HOUSE_WALLET,
-                    value: ethers.parseUnits("0.01", "ether")
-                });
-
-                log(`TX Sent! Hash: ${tx.hash.slice(0,10)}`);
-                status.innerText = "Confirming...";
-                await tx.wait();
-                log("PAID! Game starting...");
-                
-            } catch (err) {
-                log(`CRITICAL ERROR: ${err.message}`);
-                status.innerText = "Check Debug Log Below.";
-            }
+        btn.addEventListener('click', (e) => {
+            startProcess();
         });
     </script>
 </body>
