@@ -131,19 +131,37 @@ class LiquidAnimation {
             this.ctx.fillStyle = particle.color;
             this.ctx.fill();
 
-            // Glow effect
+            // Glow effect - convert hex to rgba for opacity
+            const opacity40 = this.hexToRgba(particle.color, 0.25);
+            const opacity0 = this.hexToRgba(particle.color, 0);
+            
             const gradient = this.ctx.createRadialGradient(
                 particle.x, particle.y, 0,
                 particle.x, particle.y, particle.radius * 3
             );
-            gradient.addColorStop(0, particle.color + '40');
-            gradient.addColorStop(1, particle.color + '00');
+            gradient.addColorStop(0, opacity40);
+            gradient.addColorStop(1, opacity0);
             
             this.ctx.beginPath();
             this.ctx.arc(particle.x, particle.y, particle.radius * 3, 0, Math.PI * 2);
             this.ctx.fillStyle = gradient;
             this.ctx.fill();
         }
+    }
+
+    /**
+     * Convert hex color to rgba with opacity
+     */
+    hexToRgba(hex, alpha) {
+        // Handle hex colors (e.g., #6366f1)
+        if (hex.startsWith('#')) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        // If not hex, return with default opacity
+        return hex;
     }
 
     /**
@@ -184,9 +202,13 @@ class LiquidAnimation {
             const y = this.canvas.height / 2 + Math.sin(angle) * 150;
             const radius = 80 + Math.sin(time + i) * 30;
 
+            const color = this.colors[i % this.colors.length];
+            const colorOpacity20 = this.hexToRgba(color, 0.125);
+            const colorOpacity0 = this.hexToRgba(color, 0);
+
             const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, radius);
-            gradient.addColorStop(0, this.colors[i % this.colors.length] + '20');
-            gradient.addColorStop(1, this.colors[i % this.colors.length] + '00');
+            gradient.addColorStop(0, colorOpacity20);
+            gradient.addColorStop(1, colorOpacity0);
 
             this.ctx.beginPath();
             this.ctx.arc(x, y, radius, 0, Math.PI * 2);

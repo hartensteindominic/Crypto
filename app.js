@@ -141,6 +141,8 @@ function runDiagnostics() {
     const status = parentAI.getStatus();
     const agents = parentAI.getChildAgents();
 
+    const MS_TO_SECONDS = 1000; // Milliseconds to seconds conversion
+
     // Check system health
     const diagnostics = {
         parentAIStatus: status.status,
@@ -149,8 +151,8 @@ function runDiagnostics() {
         averageEfficiency: agents.length > 0 
             ? agents.reduce((sum, a) => sum + a.efficiency, 0) / agents.length 
             : 0,
-        uptime: Math.round(status.uptime / 1000),
-        actionRate: status.actionCount / (status.uptime / 60000) // actions per minute
+        uptime: Math.round(status.uptime / MS_TO_SECONDS),
+        actionRate: status.actionCount / (status.uptime / (MS_TO_SECONDS * 60)) // actions per minute
     };
 
     console.log('System Diagnostics:', diagnostics);

@@ -283,7 +283,6 @@ class ParentAI {
      */
     clearActivityLog() {
         this.activityLog = [];
-        this.log('Activity log cleared', 'info');
     }
 }
 

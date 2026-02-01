@@ -8,7 +8,8 @@ class UIController {
         this.elements = this.initializeElements();
         this.setupEventListeners();
         this.setupCustomEventListeners();
-        this.updateInterval = setInterval(() => this.updateUI(), 1000);
+        // Update interval aligned with parent AI evaluation (3 seconds)
+        this.updateInterval = setInterval(() => this.updateUI(), 3000);
     }
 
     /**
@@ -217,6 +218,7 @@ class UIController {
      */
     clearActivityLog() {
         this.elements.activityLog.innerHTML = '';
+        this.parentAI.log('Activity log cleared', 'info');
         this.parentAI.clearActivityLog();
     }
 

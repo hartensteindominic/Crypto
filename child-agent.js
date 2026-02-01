@@ -3,6 +3,12 @@
  * Performs modular tasks like market analytics, trading support, etc.
  */
 
+// Task timing constants
+const MIN_TASK_INTERVAL = 5000; // 5 seconds
+const MAX_TASK_INTERVAL = 5000; // 5 seconds
+const MIN_TASK_DURATION = 2000; // 2 seconds
+const MAX_TASK_DURATION = 3000; // 3 seconds
+
 class ChildAgent {
     constructor(id, role, parentAI) {
         this.id = `child-agent-${String(id).padStart(3, '0')}`;
@@ -27,7 +33,7 @@ class ChildAgent {
             if (this.status === 'active') {
                 this.performTask();
             }
-        }, 5000 + Math.random() * 5000); // Random interval between 5-10 seconds
+        }, MIN_TASK_INTERVAL + Math.random() * MAX_TASK_INTERVAL);
     }
 
     /**
@@ -54,7 +60,7 @@ class ChildAgent {
                     detail: { agentId: this.id }
                 }));
             }
-        }, 2000 + Math.random() * 3000); // Task takes 2-5 seconds
+        }, MIN_TASK_DURATION + Math.random() * MAX_TASK_DURATION);
     }
 
     /**
