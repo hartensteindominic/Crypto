@@ -3,103 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rocket Launch Mission</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/index.umd.min.js"></script>
-    <style>
-        body { background: #020205; color: #00f2ff; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .card { background: #0a0a1a; border: 2px solid #00f2ff; border-radius: 20px; width: 340px; padding: 30px; text-align: center; box-shadow: 0 0 20px #00f2ff55; }
-        button { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 15px; transition: 0.3s; }
-        .btn-connect { background: #00f2ff; color: #000; }
-        .btn-mint { background: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055aa; }
-        input { width: 100%; padding: 12px; margin: 15px 0; background: #000; border: 1px solid #00f2ff; color: #0f0; text-align: center; box-sizing: border-box; border-radius: 8px; }
-        #status { margin-top: 20px; font-size: 13px; color: #88aaff; font-family: monospace; }
-        #rocket { font-size: 80px; margin-bottom: 10px; display: none; }
-        .launch { animation: fly 2s forwards ease-in; }
-        @keyframes fly { to { transform: translateY(-600px) scale(0.5); opacity: 0; } }
-    </style>
+    <title>Crypto App</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-
-<div class="card">
-    <div id="rocket">🚀</div>
-    <h2 id="title">ROCKET FLEET</h2>
-
-    <button id="connectBtn" class="btn-connect">CONNECT WALLET</button>
-
-    <div id="mintArea" style="display: none;">
-        <p style="color: #fff; font-size: 14px;">Fuel Amount (ETH):</p>
-        <input type="number" id="ethAmount" value="0.001" step="0.001">
-        <button id="mintBtn" class="btn-mint">MINT & LAUNCH</button>
-    </div>
-
-    <div id="status">Systems Offline.</div>
-</div>
-
-<script>
-    const RECIPIENT = "0x02F949281A8c9837963C82813589B845C5194Cbb";
-    let provider, signer;
-
-    const connectBtn = document.getElementById('connectBtn');
-    const mintArea = document.getElementById('mintArea');
-    const status = document.getElementById('status');
-    const rocket = document.getElementById('rocket');
-
-    connectBtn.onclick = async () => {
-        if (typeof window.ethereum === 'undefined') {
-            status.innerText = "MetaMask is not detected. Please install MetaMask.";
-            status.style.color = "#ff4444";
-            return;
-        }
-
-        try {
-            status.innerText = "Connecting wallet...";
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-            if (accounts.length > 0) {
-                provider = new ethers.BrowserProvider(window.ethereum);
-                signer = await provider.getSigner();
-
-                connectBtn.style.display = 'none';
-                mintArea.style.display = 'block';
-                status.innerHTML = `Wallet connected: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
-                status.style.color = "#00ff88";
-            } else {
-                status.innerText = "No accounts found. Please unlock your wallet.";
-                status.style.color = "#ff4444";
-            }
-        } catch (error) {
-            status.innerText = `Failed to connect wallet: ${error.message}`;
-            status.style.color = "#ff4444";
-            console.error(error);
-        }
-    };
-
-    document.getElementById('mintBtn').onclick = async () => {
-        const amount = document.getElementById('ethAmount').value;
-
-        try {
-            status.innerText = "Sign the fuel transfer in your wallet...";
-            status.style.color = "#ffcc00";
-
-            const tx = await signer.sendTransaction({
-                to: RECIPIENT,
-                value: ethers.parseEther(amount.toString())
-            });
-
-            status.innerText = "Rocket Ignited! Waiting for Orbit...";
-
-            const receipt = await tx.wait();
-
-            rocket.style.display = 'block';
-            rocket.classList.add('launch');
-            status.innerHTML = `SUCCESS!<br><a href="https://etherscan.io/tx/${tx.hash}" target="_blank" style="color:#0f0">VIEW ON BLOCKCHAIN</a>`;
-        } catch (error) {
-            console.error(error);
-            status.innerText = "Launch Failed: " + (error.reason || "Rejected");
-            status.style.color = "#ff4444";
-        }
-    };
-</script>
-
+    <div id="status">Ready to connect wallet.</div>
+    <!-- other content -->
 </body>
 </html>
