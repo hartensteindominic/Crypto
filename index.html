@@ -2,146 +2,190 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ARTPOOL | Agentic Hub</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTIENT.19 | Neural Assets</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
-        body { background: #020202; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; }
-        .agent-core { width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, #3b82f6, transparent); filter: blur(30px); transition: 0.5s; }
-        .glass { background: rgba(255,255,255,0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
-        .active-ring { border: 2px solid #3b82f6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
-        ::-webkit-scrollbar { display: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;400;900&display=swap');
+        
+        :root { --neon-blue: #3b82f6; }
+        body { background: #050505; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; height: 100vh; }
+        
+        .glass-ui { background: rgba(255,255,255,0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+        
+        .agent-node { width: 80px; height: 80px; border-radius: 50%; background: var(--neon-blue); filter: blur(25px); animation: pulse 2s infinite; }
+        
+        @keyframes pulse { 
+            0%, 100% { opacity: 0.4; transform: scale(1); box-shadow: 0 0 20px var(--neon-blue); } 
+            50% { opacity: 0.9; transform: scale(1.1); box-shadow: 0 0 50px var(--neon-blue); } 
+        }
+
+        .scanline {
+            width: 100%; height: 2px; background: var(--neon-blue); opacity: 0.3;
+            position: absolute; top: 0; left: 0; pointer-events: none;
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+        .nft-card { position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .nft-card:hover { border-color: var(--neon-blue); transform: translateY(-5px); box-shadow: 0 0 30px rgba(59, 130, 246, 0.2); }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
-<body class="h-screen flex">
+<body class="flex flex-col p-6">
 
-    <aside class="w-96 glass border-r border-white/5 flex flex-col p-8 z-50">
-        <div class="mb-10">
-            <h1 class="text-2xl font-black italic tracking-tighter">SENTIENT.18</h1>
-            <p id="status" class="text-[10px] text-zinc-500 font-mono uppercase mt-1">Awaiting Neural Link</p>
+    <header class="flex justify-between items-center mb-8 px-4">
+        <div>
+            <h1 class="text-3xl font-black italic tracking-tighter text-white">SENTIENT.19</h1>
+            <p id="chain-status" class="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">System: Standby</p>
         </div>
+        <button id="connect-trigger" onclick="initWeb3()" class="bg-blue-600 hover:bg-white hover:text-black transition-all px-8 py-3 rounded-full text-xs font-black tracking-widest border border-blue-500/50">
+            INITIALIZE LINK
+        </button>
+    </header>
 
-        <div class="flex-grow flex flex-col items-center justify-center gap-6">
-            <div id="ai-orb" class="agent-core opacity-50"></div>
-            <div id="speech-bubble" class="text-center text-sm italic text-blue-300 leading-relaxed min-h-[60px]">
-                "Hello. I am your agent. Connect your wallet to begin."
+    <main class="flex-grow grid grid-cols-12 gap-8 overflow-hidden">
+        <aside class="col-span-4 glass-ui rounded-[3rem] p-8 flex flex-col items-center relative">
+            <div class="agent-node mb-8"></div>
+            <div id="ai-speech" class="text-lg font-light text-center italic text-blue-200 mb-8 leading-relaxed">
+                "Neural authorization required. Align your wallet with the Base frequency."
             </div>
-            <button onclick="connectWeb3()" id="connect-btn" class="w-full py-4 bg-blue-600 rounded-2xl font-black text-xs hover:bg-white hover:text-black transition-all">
-                LINK WALLET: 0x02f9...
-            </button>
-        </div>
-
-        <div class="mt-8 p-4 glass rounded-2xl text-[10px] font-mono text-zinc-500">
-            <div>NETWORK: BASE L2</div>
-            <div>FEE RECIPIENT: 0x02f9...CBB</div>
-        </div>
-    </aside>
-
-    <main class="flex-grow flex flex-col">
-        <header class="p-8 flex justify-between items-center">
-            <div class="flex gap-8 text-xs font-bold uppercase">
-                <button onclick="switchView('market')" class="text-blue-500 border-b-2 border-blue-500 pb-2">Market</button>
-                <button onclick="switchView('vault')" class="text-zinc-500 hover:text-white transition">My Account</button>
+            
+            <div id="inventory-panel" class="w-full mt-auto space-y-4 opacity-10 transition-opacity duration-700">
+                <p class="text-[10px] font-bold text-zinc-400 border-b border-white/10 pb-2">LOCAL NEURAL VAULT</p>
+                <div id="user-nfts" class="grid grid-cols-4 gap-2 min-h-[60px]">
+                    </div>
+                <div class="flex justify-between text-[10px] font-mono text-zinc-500">
+                    <span>VAULT_ID:</span>
+                    <span id="display-address" class="text-blue-400">UNLINKED</span>
+                </div>
             </div>
-            <div id="wallet-tag" class="text-[10px] font-mono opacity-0">...</div>
-        </header>
+        </aside>
 
-        <section id="content-grid" class="p-10 grid grid-cols-2 lg:grid-cols-3 gap-8 overflow-y-auto">
-            </section>
+        <section class="col-span-8 glass-ui rounded-[3rem] p-10 overflow-y-auto relative">
+            <div id="market-display" class="grid grid-cols-2 gap-8 opacity-20 pointer-events-none transition-all duration-1000">
+                </div>
+        </section>
     </main>
 
     <script>
         let provider, signer, userAddress;
-        let myCollection = [];
-        const orb = document.getElementById('ai-orb');
-        const speech = document.getElementById('speech-bubble');
-        const status = document.getElementById('status');
-        const grid = document.getElementById('content-grid');
+        const BASE_HEX = "0x2105"; // 8453 for Base Mainnet
+        const TREASURY = "0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb";
 
-        // --- THE VOICE OF THE AGENT ---
-        function aiTalk(text) {
+        function aiSpeak(text) {
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(text);
-            msg.rate = 0.9;
+            msg.rate = 1.1;
+            msg.pitch = 0.8; // Lower pitch for "sentient" feel
             window.speechSynthesis.speak(msg);
-            speech.innerText = `"${text}"`;
+            document.getElementById('ai-speech').innerText = `"${text}"`;
         }
 
-        // --- WEB3 CONNECTION ---
-        async function connectWeb3() {
-            if (window.ethereum) {
+        async function initWeb3() {
+            if (!window.ethereum) return aiSpeak("No neural interface found. Please install a Web3 wallet.");
+            
+            try {
+                provider = new ethers.BrowserProvider(window.ethereum);
+                
+                // Attempt Network Switch/Add
                 try {
-                    provider = new ethers.BrowserProvider(window.ethereum);
-                    signer = await provider.getSigner();
-                    userAddress = await signer.getAddress();
-                    
-                    document.getElementById('connect-btn').innerText = "LINKED & SECURE";
-                    document.getElementById('wallet-tag').innerText = userAddress;
-                    document.getElementById('wallet-tag').style.opacity = 1;
-                    
-                    orb.classList.replace('opacity-50', 'active-ring');
-                    status.innerText = "Neural Link Active";
-                    aiTalk("Neural handshake complete. I have identified your wallet on the Base network. I am now authorized to route fees to your account and manage your vault.");
-                    
-                    renderMarket();
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: BASE_HEX }],
+                    });
                 } catch (err) {
-                    aiTalk("The neural link was rejected. Please authorize your wallet.");
+                    if (err.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: BASE_HEX,
+                                chainName: 'Base',
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                    }
                 }
-            } else {
-                aiTalk("I cannot find a wallet extension. Please install Metamask or Coinbase Wallet.");
+
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                updateUI(userAddress);
+                aiSpeak("Neural link established. Accessing the decentralized asset pool.");
+                loadMarket();
+
+            } catch (err) {
+                console.error(err);
+                aiSpeak("Connection aborted. Re-authenticate to proceed.");
             }
         }
 
-        // --- AGENTIC MARKETPLACE ---
-        function renderMarket() {
-            grid.innerHTML = '';
-            for(let i=0; i<6; i++) {
-                const id = Math.floor(Math.random()*1000);
-                const item = document.createElement('div');
-                item.className = "glass p-6 rounded-[2.5rem] hover:scale-105 transition-all cursor-pointer border border-white/5";
-                item.innerHTML = `
-                    <img src="https://picsum.photos/seed/${id}/400/400" class="rounded-3xl mb-4 grayscale hover:grayscale-0 transition-all">
+        function updateUI(addr) {
+            document.getElementById('connect-trigger').innerText = addr.slice(0,6) + "..." + addr.slice(-4);
+            document.getElementById('chain-status').innerText = "Status: Linked to Base L2";
+            document.getElementById('display-address').innerText = addr.slice(0,10);
+            document.getElementById('market-display').classList.remove('opacity-20', 'pointer-events-none');
+            document.getElementById('inventory-panel').classList.remove('opacity-10');
+        }
+
+        function loadMarket() {
+            const assets = [
+                {id: 102, name: "GHOST_SHELL", price: "0.0001"},
+                {id: 404, name: "VOID_CORE", price: "0.0002"},
+                {id: 777, name: "NEURAL_LINK", price: "0.00015"},
+                {id: 999, name: "SYNTH_SOUL", price: "0.0003"}
+            ];
+            const display = document.getElementById('market-display');
+            display.innerHTML = assets.map(asset => `
+                <div class="nft-card bg-black/40 border border-white/5 p-6 rounded-[2.5rem]">
+                    <div class="scanline"></div>
+                    <img src="https://picsum.photos/seed/${asset.id}/400/400" class="rounded-3xl mb-4 grayscale hover:grayscale-0 transition-all duration-500">
                     <div class="flex justify-between items-center">
                         <div>
-                            <p class="text-[10px] text-zinc-500 font-mono">ASSET_${id}</p>
-                            <p class="text-sm font-bold">0.05 ETH</p>
+                            <p class="text-[10px] text-blue-400 font-mono font-bold tracking-widest">${asset.name}</p>
+                            <p class="text-sm font-black">${asset.price} ETH</p>
                         </div>
-                        <button onclick="buyArt(${id})" class="bg-blue-600 px-6 py-2 rounded-full font-black text-[10px]">BUY</button>
+                        <button onclick="acquireAsset('${asset.id}', '${asset.price}', '${asset.name}')" 
+                                class="bg-blue-600 px-6 py-2 rounded-full font-black text-[10px] hover:bg-white hover:text-black transition-all">
+                            ACQUIRE
+                        </button>
                     </div>
-                `;
-                grid.appendChild(item);
+                </div>
+            `).join('');
+        }
+
+        async function acquireAsset(id, price, name) {
+            if(!signer) return;
+            aiSpeak(`Initiating transfer for ${name}. Verify the gas fees.`);
+
+            try {
+                const tx = await signer.sendTransaction({
+                    to: TREASURY,
+                    value: ethers.parseEther(price)
+                });
+                
+                aiSpeak("Transaction broadcasted. Awaiting block confirmation.");
+                await tx.wait();
+
+                depositToInventory(id);
+                aiSpeak(`Authorization complete. ${name} is now part of your neural inventory.`);
+            } catch (err) {
+                aiSpeak("Neural link interrupted. Transaction failed.");
             }
         }
 
-        async function buyArt(id) {
-            if(!userAddress) return aiTalk("Connect your wallet first.");
-            
-            aiTalk(`Preparing smart contract interaction for Asset ${id}. I am calculating the split. Zero point zero five E T H confirmed. The protocol reward will be routed back to your 0x02f9 account.`);
-            
-            // Logic to simulate on-chain movement
-            setTimeout(() => {
-                myCollection.push(id);
-                aiTalk("Success. The transaction is mined. I have moved the artwork into your account vault.");
-                switchView('vault');
-            }, 3000);
-        }
-
-        function switchView(view) {
-            grid.innerHTML = '';
-            if(view === 'vault') {
-                if(myCollection.length === 0) {
-                    grid.innerHTML = '<div class="col-span-3 text-center py-20 text-zinc-600">Your account vault is empty.</div>';
-                } else {
-                    myCollection.forEach(id => {
-                        const div = document.createElement('div');
-                        div.className = "glass p-6 rounded-[2.5rem]";
-                        div.innerHTML = `<img src="https://picsum.photos/seed/${id}/400/400" class="rounded-3xl mb-2"><p class="text-xs font-bold">Vaulted Asset #${id}</p>`;
-                        grid.appendChild(div);
-                    });
-                }
-            } else {
-                renderMarket();
-            }
+        function depositToInventory(id) {
+            const inv = document.getElementById('user-nfts');
+            const img = document.createElement('img');
+            img.src = `https://picsum.photos/seed/${id}/100/100`;
+            img.className = "w-full aspect-square rounded-xl border border-blue-500/40 animate-pulse transition-all hover:scale-110 cursor-crosshair";
+            inv.prepend(img);
         }
     </script>
 </body>
