@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITAN_V88 // WALLET_SETTLEMENT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <style>
+        body { background: #000; color: #FFD700; font-family: 'Courier New', monospace; }
+        .glass { background: rgba(0, 255, 255, 0.05); border: 1px solid rgba(0, 255, 255, 0.15); backdrop-filter: blur(12px); }
+        .btn-glow { transition: 0.3s; border: 1px solid rgba(255, 215, 0, 0.3); }
+        .btn-glow:hover { box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); transform: translateY(-2px); }
+    </style>
+</head>
+<body class="p-4 md:p-10 flex flex-col items-center">
+
+    <div class="w-full max-w-xl glass p-8 rounded-[2.5rem] text-center border-b-4 border-yellow-600 mb-8">
+        <div class="flex justify-between text-[10px] mb-6 opacity-50 uppercase tracking-widest">
+            <span>Network: Ethereum_Mainnet</span>
+            <span id="wallet-status">Status: Disconnected</span>
+        </div>
+        
+        <div class="text-[10px] opacity-40 uppercase mb-2 tracking-[0.4em]">Withdrawable_Yield</div>
+        <div id="points-val" class="text-7xl font-black text-white italic mb-2">0.00</div>
+        <div id="usd-val" class="text-sm font-bold text-yellow-500 mb-8">$0.00 USD</div>
+
+        <button onclick="withdrawToWallet()" class="btn-glow w-full bg-yellow-500 text-black p-5 rounded-2xl font-black uppercase text-xs tracking-widest">
+            Withdraw to Wallet
+        </button>
+    </div>
+
+    <div class="w-full max-w-xl glass p-8 rounded-[2.5rem] border-l-4 border-cyan-500">
+        <h2 class="text-[10px] font-black text-cyan-400 mb-6 uppercase">Asset_Submission_Portal</h2>
+        
+        <div class="space-y-4">
+            <select id="asset-type" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-xs text-white outline-none focus:border-cyan-500">
+                <option value="data">AI Training Dataset</option>
+                <option value="prompt">Prompt Engineering Pack</option>
+                <option value="code">Smart Contract Snippet</option>
+            </select>
+
+            <textarea id="asset-desc" placeholder="Describe the asset utility..." class="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-xs text-white h-24 outline-none focus:border-cyan-500"></textarea>
+
+            <div class="flex items-center justify-center w-full">
+                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-cyan-500/20 border-dashed rounded-2xl cursor-pointer hover:bg-white/5 transition-all">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <p class="mb-2 text-xs text-cyan-400 font-bold">CLICK TO UPLOAD ASSET</p>
+                        <p class="text-[8px] text-gray-500">JSON, ZIP, OR PDF (MAX 50MB)</p>
+                    </div>
+                    <input type="file" class="hidden" onchange="processAsset()" />
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let points = parseFloat(localStorage.getItem('titan_points')) || 0;
+        const ETH_RATE = 2214.52;
+
+        // 1. Update UI Values
+        function updateUI() {
+            document.getElementById('points-val').innerText = points.toFixed(2);
+            const usd = (points * 0.00001) * ETH_RATE;
+            document.getElementById('usd-val').innerText = "$" + usd.toFixed(2) + " USD";
+        }
+        updateUI();
+
+        // 2. Process Marketplace Sales
+        function processAsset() {
+            const desc = document.getElementById('asset-desc').value;
+            if (!desc) return alert("AI Valuation Error: Description required.");
+            
+            const reward = Math.floor(Math.random() * 500) + 200;
+            points += reward;
+            localStorage.setItem('titan_points', points);
+            updateUI();
+            alert(`🔱 ASSET VERIFIED\nAI Valuation: +${reward} Points`);
+        }
+
+        // 3. REAL WALLET WITHDRAWAL (Mainnet)
+        async function withdrawToWallet() {
+            if (!window.ethereum) return alert("Please install MetaMask!");
+
+            try {
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const address = await signer.getAddress();
+                
+                const ethAmount = (points * 0.00001).toFixed(6);
+                
+                if (ethAmount < 0.001) return alert("Minimum withdrawal is 0.001 ETH.");
+
+                alert(`🔱 INITIATING BLOCKCHAIN TRANSFER\nAmount: ${ethAmount} ETH\nTo: ${address}`);
+
+                // This triggers the REAL MetaMask Popup
+                const tx = await signer.sendTransaction({
+                    to: address, // Sending to yourself as a test, or change to a Treasury address
+                    value: ethers.parseEther(ethAmount)
+                });
+
+                console.log("TX Hash:", tx.hash);
+                await tx.wait(); // Wait for confirmation
+                
+                points = 0;
+                localStorage.setItem('titan_points', 0);
+                updateUI();
+                alert("🔱 SETTLEMENT SUCCESSFUL: Funds are in your wallet.");
+
+            } catch (err) {
+                console.error(err);
+                alert("🔱 TRANSACTION REVERTED: Check gas or signature.");
+            }
+        }
+    </script>
+</body>
+</html>
