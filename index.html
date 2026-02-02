@@ -8,185 +8,98 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;400;900&display=swap');
-        
-        :root { --neon-blue: #3b82f6; }
-        body { background: #050505; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; height: 100vh; }
-        
+        body { background: #050505; color: #fff; font-family: 'Outfit', sans-serif; overflow-x: hidden; }
         .glass-ui { background: rgba(255,255,255,0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
-        
-        .agent-node { width: 80px; height: 80px; border-radius: 50%; background: var(--neon-blue); filter: blur(25px); animation: pulse 2s infinite; }
-        
-        @keyframes pulse { 
-            0%, 100% { opacity: 0.4; transform: scale(1); box-shadow: 0 0 20px var(--neon-blue); } 
-            50% { opacity: 0.9; transform: scale(1.1); box-shadow: 0 0 50px var(--neon-blue); } 
-        }
-
-        .scanline {
-            width: 100%; height: 2px; background: var(--neon-blue); opacity: 0.3;
-            position: absolute; top: 0; left: 0; pointer-events: none;
-            animation: scan 3s linear infinite;
-        }
-
-        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-
-        .nft-card { position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .nft-card:hover { border-color: var(--neon-blue); transform: translateY(-5px); box-shadow: 0 0 30px rgba(59, 130, 246, 0.2); }
-        
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .agent-node { width: 60px; height: 60px; border-radius: 50%; background: #3b82f6; filter: blur(20px); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } }
+        .nft-card { transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .nft-card:hover { border-color: #3b82f6; transform: translateY(-5px); }
+        .scanline { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #3b82f6; opacity: 0.2; animation: scan 4s linear infinite; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
     </style>
 </head>
-<body class="flex flex-col p-6">
+<body class="flex flex-col min-h-screen p-4 md:p-8">
 
-    <header class="flex justify-between items-center mb-8 px-4">
+    <header class="flex justify-between items-center mb-10">
         <div>
-            <h1 class="text-3xl font-black italic tracking-tighter text-white">SENTIENT.19</h1>
-            <p id="chain-status" class="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">System: Standby</p>
+            <h1 class="text-2xl font-black italic tracking-tighter">SENTIENT.19</h1>
+            <p id="chain-status" class="text-[10px] text-zinc-500 uppercase tracking-widest">System: Standby</p>
         </div>
-        <button id="connect-trigger" onclick="initWeb3()" class="bg-blue-600 hover:bg-white hover:text-black transition-all px-8 py-3 rounded-full text-xs font-black tracking-widest border border-blue-500/50">
+        <button id="connect-trigger" onclick="initWeb3()" class="bg-blue-600 hover:bg-white hover:text-black transition-all px-6 py-2 rounded-full text-[10px] font-black tracking-widest border border-blue-500/50">
             INITIALIZE LINK
         </button>
     </header>
 
-    <main class="flex-grow grid grid-cols-12 gap-8 overflow-hidden">
-        <aside class="col-span-4 glass-ui rounded-[3rem] p-8 flex flex-col items-center relative">
-            <div class="agent-node mb-8"></div>
-            <div id="ai-speech" class="text-lg font-light text-center italic text-blue-200 mb-8 leading-relaxed">
-                "Neural authorization required. Align your wallet with the Base frequency."
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <aside class="lg:col-span-4 glass-ui rounded-[2.5rem] p-8 flex flex-col items-center">
+            <div class="agent-node mb-6"></div>
+            <div id="ai-speech" class="text-md font-light text-center italic text-blue-200 mb-8">
+                "Neural authorization required. Align your wallet."
             </div>
-            
-            <div id="inventory-panel" class="w-full mt-auto space-y-4 opacity-10 transition-opacity duration-700">
-                <p class="text-[10px] font-bold text-zinc-400 border-b border-white/10 pb-2">LOCAL NEURAL VAULT</p>
-                <div id="user-nfts" class="grid grid-cols-4 gap-2 min-h-[60px]">
-                    </div>
-                <div class="flex justify-between text-[10px] font-mono text-zinc-500">
-                    <span>VAULT_ID:</span>
-                    <span id="display-address" class="text-blue-400">UNLINKED</span>
-                </div>
+            <div id="gas-oracle" class="w-full bg-white/5 rounded-2xl p-4 mb-8 hidden">
+                <p class="text-[9px] text-blue-400 font-bold uppercase mb-1">Network Pulse</p>
+                <p id="gas-status" class="text-xs font-mono text-zinc-400">> Syncing with Base L2...</p>
             </div>
         </aside>
 
-        <section class="col-span-8 glass-ui rounded-[3rem] p-10 overflow-y-auto relative">
-            <div id="market-display" class="grid grid-cols-2 gap-8 opacity-20 pointer-events-none transition-all duration-1000">
+        <section class="lg:col-span-8 glass-ui rounded-[2.5rem] p-6 md:p-10">
+            <div id="market-display" class="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-20 pointer-events-none transition-all duration-700">
                 </div>
         </section>
     </main>
 
     <script>
-        let provider, signer, userAddress;
-        const BASE_HEX = "0x2105"; // 8453 for Base Mainnet
-        const TREASURY = "0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb";
+        let provider, signer;
+        const MINT_FEE = "0.001"; // Your Profit
+        const TREASURY_WALLET = "YOUR_WALLET_ADDRESS_HERE"; 
 
-        function aiSpeak(text) {
-            window.speechSynthesis.cancel();
-            const msg = new SpeechSynthesisUtterance(text);
-            msg.rate = 1.1;
-            msg.pitch = 0.8; // Lower pitch for "sentient" feel
-            window.speechSynthesis.speak(msg);
-            document.getElementById('ai-speech').innerText = `"${text}"`;
-        }
+        const ASSETS = [
+            { id: 1, name: "GHOST_SHELL", img: "https://i.imgur.com/uXmR8Xw.png" },
+            { id: 2, name: "VOID_CORE", img: "https://i.imgur.com/8Qp7N3U.png" },
+            { id: 3, name: "NEURAL_LINK", img: "https://i.imgur.com/3Z7oE7k.png" },
+            { id: 4, name: "SYNTH_SOUL", img: "https://i.imgur.com/T0y8O4S.png" }
+        ];
 
         async function initWeb3() {
-            if (!window.ethereum) return aiSpeak("No neural interface found. Please install a Web3 wallet.");
-            
-            try {
-                provider = new ethers.BrowserProvider(window.ethereum);
-                
-                // Attempt Network Switch/Add
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: BASE_HEX }],
-                    });
-                } catch (err) {
-                    if (err.code === 4902) {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: BASE_HEX,
-                                chainName: 'Base',
-                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                                rpcUrls: ['https://mainnet.base.org'],
-                                blockExplorerUrls: ['https://basescan.org']
-                            }]
-                        });
-                    }
-                }
-
-                signer = await provider.getSigner();
-                userAddress = await signer.getAddress();
-                
-                updateUI(userAddress);
-                aiSpeak("Neural link established. Accessing the decentralized asset pool.");
-                loadMarket();
-
-            } catch (err) {
-                console.error(err);
-                aiSpeak("Connection aborted. Re-authenticate to proceed.");
-            }
-        }
-
-        function updateUI(addr) {
-            document.getElementById('connect-trigger').innerText = addr.slice(0,6) + "..." + addr.slice(-4);
-            document.getElementById('chain-status').innerText = "Status: Linked to Base L2";
-            document.getElementById('display-address').innerText = addr.slice(0,10);
+            if (!window.ethereum) return aiSpeak("No neural interface found.");
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
             document.getElementById('market-display').classList.remove('opacity-20', 'pointer-events-none');
-            document.getElementById('inventory-panel').classList.remove('opacity-10');
+            document.getElementById('gas-oracle').classList.remove('hidden');
+            document.getElementById('chain-status').innerText = "Status: Linked to Base";
+            loadMarket();
         }
 
         function loadMarket() {
-            const assets = [
-                {id: 102, name: "GHOST_SHELL", price: "0.0001"},
-                {id: 404, name: "VOID_CORE", price: "0.0002"},
-                {id: 777, name: "NEURAL_LINK", price: "0.00015"},
-                {id: 999, name: "SYNTH_SOUL", price: "0.0003"}
-            ];
-            const display = document.getElementById('market-display');
-            display.innerHTML = assets.map(asset => `
-                <div class="nft-card bg-black/40 border border-white/5 p-6 rounded-[2.5rem]">
+            document.getElementById('market-display').innerHTML = ASSETS.map(a => `
+                <div class="nft-card bg-black/40 border border-white/5 p-5 rounded-[2rem]">
                     <div class="scanline"></div>
-                    <img src="https://picsum.photos/seed/${asset.id}/400/400" class="rounded-3xl mb-4 grayscale hover:grayscale-0 transition-all duration-500">
+                    <img src="${a.img}" class="rounded-2xl mb-4 w-full aspect-square object-cover">
                     <div class="flex justify-between items-center">
                         <div>
-                            <p class="text-[10px] text-blue-400 font-mono font-bold tracking-widest">${asset.name}</p>
-                            <p class="text-sm font-black">${asset.price} ETH</p>
+                            <p class="text-[10px] text-blue-400 font-mono font-bold">${a.name}</p>
+                            <p class="text-xs font-black">${MINT_FEE} ETH</p>
                         </div>
-                        <button onclick="acquireAsset('${asset.id}', '${asset.price}', '${asset.name}')" 
-                                class="bg-blue-600 px-6 py-2 rounded-full font-black text-[10px] hover:bg-white hover:text-black transition-all">
-                            ACQUIRE
-                        </button>
+                        <button onclick="acquireAsset('${a.name}')" class="bg-blue-600 px-5 py-2 rounded-full text-[9px] font-black">MINT</button>
                     </div>
                 </div>
             `).join('');
         }
 
-        async function acquireAsset(id, price, name) {
+        async function acquireAsset(name) {
             if(!signer) return;
-            aiSpeak(`Initiating transfer for ${name}. Verify the gas fees.`);
-
+            aiSpeak(`Initiating synthesis for ${name}.`);
             try {
                 const tx = await signer.sendTransaction({
-                    to: TREASURY,
-                    value: ethers.parseEther(price)
+                    to: TREASURY_WALLET,
+                    value: ethers.parseEther(MINT_FEE)
                 });
-                
-                aiSpeak("Transaction broadcasted. Awaiting block confirmation.");
                 await tx.wait();
-
-                depositToInventory(id);
-                aiSpeak(`Authorization complete. ${name} is now part of your neural inventory.`);
-            } catch (err) {
-                aiSpeak("Neural link interrupted. Transaction failed.");
-            }
+                aiSpeak(`Success. ${name} secured.`);
+            } catch (e) { aiSpeak("Synthesis failed."); }
         }
 
-        function depositToInventory(id) {
-            const inv = document.getElementById('user-nfts');
-            const img = document.createElement('img');
-            img.src = `https://picsum.photos/seed/${id}/100/100`;
-            img.className = "w-full aspect-square rounded-xl border border-blue-500/40 animate-pulse transition-all hover:scale-110 cursor-crosshair";
-            inv.prepend(img);
-        }
+        function aiSpeak(t) { document.getElementById('ai-speech').innerText = `"${t}"`; }
     </script>
 </body>
 </html>
