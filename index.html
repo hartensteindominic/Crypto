@@ -12,9 +12,9 @@
         .glass-ui { background: rgba(255,255,255,0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
         .agent-node { width: 60px; height: 60px; border-radius: 50%; background: #3b82f6; filter: blur(20px); animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } }
-        .nft-card { transition: all 0.3s ease; position: relative; overflow: hidden; }
-        .nft-card:hover { border-color: #3b82f6; transform: translateY(-5px); }
-        .scanline { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #3b82f6; opacity: 0.2; animation: scan 4s linear infinite; }
+        .nft-card { transition: all 0.3s ease; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+        .nft-card:hover { border-color: #3b82f6; transform: translateY(-5px); background: rgba(59, 130, 246, 0.05); }
+        .scanline { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #3b82f6; opacity: 0.1; animation: scan 4s linear infinite; }
         @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
     </style>
 </head>
@@ -34,11 +34,11 @@
         <aside class="lg:col-span-4 glass-ui rounded-[2.5rem] p-8 flex flex-col items-center">
             <div class="agent-node mb-6"></div>
             <div id="ai-speech" class="text-md font-light text-center italic text-blue-200 mb-8">
-                "Neural authorization required. Align your wallet."
+                "Neural treasury set. Ready to collect synthesis fees."
             </div>
             <div id="gas-oracle" class="w-full bg-white/5 rounded-2xl p-4 mb-8 hidden">
                 <p class="text-[9px] text-blue-400 font-bold uppercase mb-1">Network Pulse</p>
-                <p id="gas-status" class="text-xs font-mono text-zinc-400">> Syncing with Base L2...</p>
+                <p id="gas-status" class="text-xs font-mono text-zinc-400">> Syncing Base L2...</p>
             </div>
         </aside>
 
@@ -50,8 +50,8 @@
 
     <script>
         let provider, signer;
-        const MINT_FEE = "0.001"; // Your Profit
-        const TREASURY_WALLET = "YOUR_WALLET_ADDRESS_HERE"; 
+        const MINT_FEE = "0.001"; 
+        const TREASURY_WALLET = "0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb"; 
 
         const ASSETS = [
             { id: 1, name: "GHOST_SHELL", img: "https://i.imgur.com/uXmR8Xw.png" },
@@ -72,15 +72,15 @@
 
         function loadMarket() {
             document.getElementById('market-display').innerHTML = ASSETS.map(a => `
-                <div class="nft-card bg-black/40 border border-white/5 p-5 rounded-[2rem]">
+                <div class="nft-card bg-black/40 p-5 rounded-[2rem]">
                     <div class="scanline"></div>
-                    <img src="${a.img}" class="rounded-2xl mb-4 w-full aspect-square object-cover">
+                    <img src="${a.img}" class="rounded-2xl mb-4 w-full aspect-square object-cover shadow-2xl">
                     <div class="flex justify-between items-center">
                         <div>
                             <p class="text-[10px] text-blue-400 font-mono font-bold">${a.name}</p>
                             <p class="text-xs font-black">${MINT_FEE} ETH</p>
                         </div>
-                        <button onclick="acquireAsset('${a.name}')" class="bg-blue-600 px-5 py-2 rounded-full text-[9px] font-black">MINT</button>
+                        <button onclick="acquireAsset('${a.name}')" class="bg-blue-600 px-5 py-2 rounded-full text-[9px] font-black border border-blue-400/30">MINT</button>
                     </div>
                 </div>
             `).join('');
@@ -94,9 +94,10 @@
                     to: TREASURY_WALLET,
                     value: ethers.parseEther(MINT_FEE)
                 });
+                aiSpeak("Transaction in progress. Securing neural fee...");
                 await tx.wait();
-                aiSpeak(`Success. ${name} secured.`);
-            } catch (e) { aiSpeak("Synthesis failed."); }
+                aiSpeak(`Success. ${name} secured. Check your wallet.`);
+            } catch (e) { aiSpeak("Synthesis failed or rejected."); }
         }
 
         function aiSpeak(t) { document.getElementById('ai-speech').innerText = `"${t}"`; }
