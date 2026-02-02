@@ -1,9 +1,7 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { base, baseSepolia } from 'wagmi/chains';
+import { base } from 'wagmi/chains';
 
-export const config = getDefaultConfig({
-  appName: 'Art Liquidity Pool',
-  projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', // Get one at cloud.walletconnect.com
-  chains: [base, baseSepolia],
-  ssr: true, // If using Next.js App Router
-});
+export const BASE_CONFIG = {
+  chainId: 8453,
+  rpcUrl: 'https://mainnet.base.org',
+  explorer: 'https://basescan.org'
+};
