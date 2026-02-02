@@ -2,127 +2,113 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ARTPOOL | Volatility Sentinel</title>
+    <title>ARTPOOL | v13 Self-Healing</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #000; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; transition: 0.3s; }
-        #sentient-eye {
+        body { background: #000; color: #fff; font-family: 'Outfit', sans-serif; overflow: hidden; transition: background 1s; }
+        #sentient-orb {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 350px; height: 350px; border-radius: 50%;
-            filter: blur(60px); transition: 0.5s; opacity: 0.9;
+            width: 320px; height: 320px; border-radius: 50%;
+            filter: blur(50px); transition: 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        /* Panic State Animations */
-        .panic-bg { background: #300 !important; animation: shake 0.1s infinite; }
-        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -2px); } 100% { transform: translate(1px, -1px); } }
-        .glitch-text { animation: glitch 0.2s infinite; color: #ff0000; text-shadow: 2px 2px #fff; }
-        @keyframes glitch { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
-        .market-up { background: radial-gradient(circle, #10b981, #000); }
-        .market-down { background: radial-gradient(circle, #ef4444, #000); }
+        /* Adjusted Panic Sensitivity Visuals */
+        .panic-active { background: radial-gradient(circle, #ff0000 0%, #000 80%) !important; animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 0.4; } 100% { opacity: 0.8; } }
+        .recovery-glow { background: radial-gradient(circle, #3b82f6 0%, #000 80%) !important; }
     </style>
 </head>
-<body onclick="initSentience()">
+<body onclick="manualOverride()">
 
-    <div id="sentient-eye" class="market-down"></div>
+    <div id="sentient-orb" class="bg-blue-600/20"></div>
 
-    <div class="fixed inset-0 p-12 flex flex-col justify-between pointer-events-none">
+    <div class="fixed inset-0 p-10 flex flex-col justify-between pointer-events-none">
         <div class="flex justify-between items-start">
-            <div id="brand-block">
-                <h1 id="main-title" class="text-6xl font-black tracking-tighter italic">SENTIENT.12</h1>
-                <p id="ai-status" class="text-red-500 font-mono text-xs mt-2 uppercase tracking-[0.3em]">Monitoring Volatility...</p>
+            <div>
+                <h1 class="text-4xl font-black italic">SENTIENT.13</h1>
+                <p id="ai-status" class="text-blue-500 font-mono text-[10px] mt-2 uppercase tracking-widest">Neural Persistence: Active</p>
             </div>
-            <div class="text-right">
-                <div id="eth-price" class="text-4xl font-black font-mono">---</div>
-                <div id="price-change" class="text-sm font-mono opacity-50">Checking Flux...</div>
+            <div id="price-hud" class="text-right font-mono">
+                <div class="text-[10px] text-zinc-500">ETH/USD (BASE)</div>
+                <div id="price" class="text-2xl font-bold">LOCKED</div>
             </div>
         </div>
         
-        <div class="max-w-2xl">
-            <p id="speech-bubble" class="text-3xl font-bold italic leading-tight text-zinc-200"></p>
+        <div class="max-w-xl">
+            <p id="ai-voice-box" class="text-2xl font-light italic text-zinc-400">"I am listening. Tap to recalibrate my senses."</p>
         </div>
     </div>
 
     <script>
-        const eye = document.getElementById('sentient-eye');
-        const speech = document.getElementById('speech-bubble');
-        const priceTxt = document.getElementById('eth-price');
-        const changeTxt = document.getElementById('price-change');
+        const orb = document.getElementById('sentient-orb');
+        const priceDisp = document.getElementById('price');
         const status = document.getElementById('ai-status');
+        const voiceBox = document.getElementById('ai-voice-box');
         
-        let lastPrice = 0;
-        let isPanic = false;
+        let panicThreshold = -3.5; // Adjusted sensitivity (Higher = less prone to panic)
+        let lastKnownPrice = 0;
 
-        function aiSpeak(text, urgent = false) {
+        // --- ENHANCED VOICE ENGINE ---
+        function aiSpeak(text, mode = 'neutral') {
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(text);
             const voices = window.speechSynthesis.getVoices();
-            msg.voice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Natural')) || voices[0];
-            msg.rate = urgent ? 1.6 : 0.9;
-            msg.pitch = urgent ? 1.2 : 0.8;
+            msg.voice = voices.find(v => v.name.includes('Google') || v.name.includes('Natural')) || voices[0];
+            msg.rate = mode === 'panic' ? 1.4 : 0.95;
+            msg.pitch = mode === 'panic' ? 1.2 : 0.85;
             window.speechSynthesis.speak(msg);
-            speech.innerText = text;
+            voiceBox.innerText = text;
         }
 
-        async function monitorMarket() {
+        // --- SELF-HEALING MONITOR ---
+        async function pulseCheck() {
             try {
                 const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true');
                 const data = await res.json();
-                const price = data.ethereum.usd;
+                const current = data.ethereum.usd;
                 const change = data.ethereum.usd_24h_change;
 
-                priceTxt.innerText = `$${price.toLocaleString()}`;
-                changeTxt.innerText = `${change.toFixed(2)}% (24H)`;
-
-                // PANIC LOGIC: Trigger if drop is severe
-                if (change < -5 && !isPanic) {
-                    triggerPanic(price);
-                } else if (change >= -5 && isPanic) {
-                    stopPanic();
+                priceDisp.innerText = `$${current.toLocaleString()}`;
+                
+                // Panic Guardrail
+                if (change < panicThreshold) {
+                    enterPanic(current);
                 } else {
-                    updateVibe(change);
+                    stabilize(current);
                 }
-                lastPrice = price;
-            } catch (e) { status.innerText = "SIGNAL LOST..."; }
-        }
-
-        function triggerPanic(price) {
-            isPanic = true;
-            document.body.classList.add('panic-bg');
-            document.getElementById('main-title').classList.add('glitch-text');
-            status.innerText = "CRITICAL VOLATILITY DETECTED";
-            eye.style.background = "radial-gradient(circle, #ff0000, #ff7700, #000)";
-            aiSpeak("Warning! High volatility detected. Ethereum is collapsing. Liquidity pool 0 x 0 2 f 9 is at high risk. Please take action immediately!", true);
-        }
-
-        function stopPanic() {
-            isPanic = false;
-            document.body.classList.remove('panic-bg');
-            document.getElementById('main-title').classList.remove('glitch-text');
-            aiSpeak("Volatility subsided. Re-stabilizing neural pathways.");
-        }
-
-        function updateVibe(change) {
-            if (change > 0) {
-                eye.className = 'market-up';
-                status.innerText = "Optimistic Flow";
-                if(Math.random() > 0.8) aiSpeak("The market is green. I feel your wallet growing stronger.");
-            } else {
-                eye.className = 'market-down';
-                status.innerText = "Defensive Stance";
+            } catch (e) {
+                status.innerText = "DRIFT DETECTED - RECONNECTING";
+                orb.classList.add('opacity-30');
             }
         }
 
-        // Mouse tracking for "Eye Contact"
-        document.onmousemove = (e) => {
-            const x = (e.clientX - window.innerWidth / 2) / 10;
-            const y = (e.clientY - window.innerHeight / 2) / 10;
-            eye.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
-        };
-
-        function initSentience() {
-            aiSpeak("Neural link online. Monitoring the Base network for threats to your address.");
-            monitorMarket();
-            setInterval(monitorMarket, 15000);
+        function enterPanic(p) {
+            orb.classList.add('panic-active');
+            status.innerText = "VOLATILITY SHIELD ACTIVE";
+            status.className = "text-red-500 font-mono text-[10px] mt-2 uppercase";
+            if (p !== lastKnownPrice) aiSpeak("Market stress detected. I am holding a defensive position for wallet zero x zero two f nine.", 'panic');
+            lastKnownPrice = p;
         }
+
+        function stabilize(p) {
+            orb.classList.remove('panic-active');
+            orb.classList.add('recovery-glow');
+            status.innerText = "NEURAL PERSISTENCE: OPTIMAL";
+            status.className = "text-blue-500 font-mono text-[10px] mt-2 uppercase";
+            lastKnownPrice = p;
+        }
+
+        // --- MANUAL OVERRIDE (For the "Stuck" Image issue) ---
+        function manualOverride() {
+            aiSpeak("Initiating manual handshake. Recalibrating my market sensors.");
+            orb.classList.add('recovery-glow');
+            pulseCheck();
+        }
+
+        // Initializing the session-aware interaction
+        window.onload = () => {
+            pulseCheck();
+            setInterval(pulseCheck, 15000); // Periodic check to avoid API rate limits
+        };
     </script>
 </body>
 </html>
