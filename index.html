@@ -2,173 +2,122 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEON REPO ART</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>TITAN_ARCHON // V61_OVERDRIVE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root {
-            --neon: #00f2ff;
-            --accent: #bc13fe;
-            --bg: #050505;
-        }
-
-        body { 
-            background: var(--bg);
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* Animated Gradient Text */
-        h1 {
-            font-size: 2.5rem;
-            margin: 40px 0 10px 0;
-            background: linear-gradient(45deg, var(--neon), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -1px;
-        }
-
-        #connectBtn {
-            background: rgba(188, 19, 254, 0.1);
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            padding: 12px 30px;
-            border-radius: 100px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 40px;
-            transition: 0.3s;
-        }
-
-        #connectBtn:hover {
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 0 20px var(--accent);
-        }
-
-        /* The Gallery Grid */
-        .grid {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        /* Glassmorphism Art Card */
-        .card {
-            background: #111;
-            border: 1px solid #222;
-            border-radius: 24px;
-            padding: 12px;
-            text-align: left;
-            transition: 0.3s;
-        }
-
-        .card:active { transform: scale(0.98); }
-
-        .card img {
-            width: 100%;
-            height: 350px;
-            object-fit: cover;
-            border-radius: 18px;
-            display: block;
-        }
-
-        .card-info { padding: 15px 5px; }
-
-        .card-info h3 { margin: 0; font-size: 1.4rem; color: #fff; }
-
-        .price {
-            color: var(--neon);
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin: 8px 0;
-        }
-
-        .buy-btn {
-            width: 100%;
-            background: white;
-            color: black;
-            border: none;
-            padding: 15px;
-            border-radius: 15px;
-            font-weight: 800;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-
-        #status {
-            position: fixed;
-            bottom: 20px;
-            background: rgba(0,0,0,0.8);
-            padding: 10px 20px;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            border: 1px solid #333;
-        }
+        body { margin: 0; background: #000; color: #FFD700; font-family: 'Courier New', monospace; overflow: hidden; }
+        canvas { position: fixed; top: 0; left: 0; z-index: -1; }
+        .glass { background: rgba(0, 0, 0, 0.98); backdrop-filter: blur(30px); border: 1px solid rgba(255, 215, 0, 0.4); }
+        .btn-gold { border: 1px solid #FFD700; color: #FFD700; padding: 14px; font-size: 10px; font-weight: 900; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
+        .btn-gold:active { background: #FFD700; color: #000; scale: 0.95; }
+        .cyan-text { color: #00ffff; text-shadow: 0 0 10px #00ffff; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <h1>The Repo.</h1>
-    <button id="connectBtn">Connect Wallet</button>
+<canvas id="bg"></canvas>
 
-    <div class="grid">
-        <div class="card">
-            <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80" alt="Art">
-            <div class="card-info">
-                <h3>Digital Ether #01</h3>
-                <div class="price">0.005 ETH</div>
-                <button class="buy-btn" onclick="buy('0.005')">PURCHASE</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <img src="https://images.unsplash.com/photo-1633167606207-d840b5070fc2?auto=format&fit=crop&w=600&q=80" alt="Art">
-            <div class="card-info">
-                <h3>Glitch Genesis</h3>
-                <div class="price">0.01 ETH</div>
-                <button class="buy-btn" onclick="buy('0.01')">PURCHASE</button>
-            </div>
-        </div>
+<div id="invite-gate" class="fixed inset-0 z-[1000] bg-black flex items-center justify-center p-6">
+    <div class="w-full max-w-md glass p-10 text-center border-t-8 border-[#FFD700]">
+        <h1 class="text-3xl font-black italic mb-2 tracking-tighter uppercase">Titan_V61</h1>
+        <p class="text-[8px] cyan-text uppercase tracking-widest mb-10">Baseline Removed // Speed: 250.0 P/H</p>
+        <input id="invite-input" type="text" placeholder="ACCESS_CODE" class="w-full bg-white/5 border border-white/20 p-4 text-center text-xl tracking-[0.4em] text-[#FFD700] outline-none mb-6">
+        <button onclick="verifyInvite()" class="w-full btn-gold">Authorize Overdrive</button>
     </div>
+</div>
 
-    <div id="status">Ready...</div>
+<div class="fixed top-6 right-6 z-50 w-72 glass p-5 border-r-4 border-cyan-500">
+    <div id="wallet-init">
+        <button onclick="createImperialWallet()" class="w-full btn-gold !text-[10px]">Initialize Vault</button>
+    </div>
+    <div id="wallet-display" class="hidden space-y-3">
+        <span id="addr-text" class="text-[9px] cyan-text font-bold break-all block">0x...</span>
+        <div class="pt-2 border-t border-white/10">
+            <span id="eth-val" class="text-lg font-black text-white">0.00000 ETH</span>
+            <span class="text-[8px] text-red-500 block">Withdrawal Baseline: NONE</span>
+        </div>
+        <button onclick="executeWithdrawal()" class="w-full bg-cyan-600 text-black p-3 text-[9px] font-black uppercase">Instant Cashout</button>
+    </div>
+</div>
 
-    <script>
-        const wallet = "0x13B87B819252A81381C3Ce35e3Bd33199F4c6650";
-        let user;
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 glass p-10 text-center border-b-8 border-cyan-500">
+    <div id="points-val" class="text-6xl font-black mb-4 tracking-tighter">0000.00</div>
+    <div class="text-[10px] mb-6 text-cyan-400 font-bold uppercase tracking-widest">Speed: 250.0 P/H</div>
+    <button id="mine-btn" onclick="toggleMining()" class="w-full bg-[#FFD700] text-black p-5 font-black uppercase text-sm">Engage Overdrive</button>
+</div>
 
-        async function connect() {
-            if (window.ethereum) {
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const acc = await provider.send("eth_requestAccounts", []);
-                user = await provider.getSigner();
-                document.getElementById('connectBtn').innerText = "Wallet: " + acc[0].slice(0,5) + "...";
-            }
+<script>
+    let points = parseFloat(localStorage.getItem('imperial_points')) || 0;
+    let isMining = false; let miningLoop; let localWallet = null;
+    const conversionRate = 0.00001; 
+
+    // --- 🎨 3D MATRIX ---
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg'), alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    const grid = new THREE.GridHelper(100, 40, 0x00ffff, 0x111111);
+    scene.add(grid); camera.position.set(0, 15, 25); camera.lookAt(0,0,0);
+    function animate() { requestAnimationFrame(animate); if(isMining) { grid.position.z += 0.8; if(grid.position.z > 5) grid.position.z = 0; } renderer.render(scene, camera); }
+    animate();
+
+    updateUI();
+
+    function verifyInvite() {
+        if(document.getElementById('invite-input').value.toUpperCase() === "IMPERIAL") {
+            document.getElementById('invite-gate').classList.add('hidden');
         }
+    }
 
-        async function buy(amt) {
-            if (!user) await connect();
-            try {
-                document.getElementById('status').innerText = "Check your wallet...";
-                const tx = await user.sendTransaction({ to: wallet, value: ethers.parseEther(amt) });
-                document.getElementById('status').innerText = "Processing...";
-                await tx.wait();
-                document.getElementById('status').innerText = "SUCCESS! ART SECURED.";
-            } catch (e) {
-                document.getElementById('status').innerText = "Transaction Failed.";
-            }
-        }
+    function createImperialWallet() {
+        localWallet = ethers.Wallet.createRandom();
+        document.getElementById('wallet-init').classList.add('hidden');
+        document.getElementById('wallet-display').classList.remove('hidden');
+        document.getElementById('addr-text').innerText = localWallet.address;
+    }
 
-        document.getElementById('connectBtn').addEventListener('click', connect);
-    </script>
+    function updateUI() {
+        document.getElementById('points-val').innerText = points.toFixed(2);
+        const netEth = (points * conversionRate) * 0.95; 
+        document.getElementById('eth-val').innerText = netEth.toFixed(5) + " ETH";
+    }
+
+    async function executeWithdrawal() {
+        if(!localWallet) return alert("Generate Address First.");
+        if(points <= 0) return alert("No points to withdraw.");
+
+        const netAmount = (points * conversionRate) * 0.95;
+        const message = `IMPERIAL_CLAIM|${localWallet.address}|${netAmount.toFixed(6)}`;
+        const signature = await localWallet.signMessage(message);
+
+        const claimData = `CLAIM_EXPORT: ${netAmount.toFixed(6)} ETH\nSIGNATURE: ${signature}`;
+        const blob = new Blob([claimData], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "IMPERIAL_CLAIM.txt";
+        a.click();
+
+        points = 0;
+        localStorage.setItem('imperial_points', 0);
+        updateUI();
+        alert("Withdrawal Complete. Baseline restriction bypassed.");
+    }
+
+    function toggleMining() {
+        isMining = !isMining;
+        document.getElementById('mine-btn').innerText = isMining ? "Overdrive Active" : "Engage Overdrive";
+        if(isMining) {
+            miningLoop = setInterval(() => {
+                points += (250.0 / 3600);
+                updateUI();
+                localStorage.setItem('imperial_points', points);
+            }, 1000);
+        } else { clearInterval(miningLoop); }
+    }
+</script>
 </body>
 </html>
