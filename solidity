@@ -1,26 +1,11 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
-contract ArtLiquidityPool {
-    uint256 public constant TX_FEE = 0.01 ether; // Example fee
+// Deposit artwork, pay fee, and get "Borrowing Power"
+function depositArt(address nftContract, uint256 tokenId) external payable {
+    require(msg.value >= 0.001 ether, "Fee required"); // Base fees are cheap!
     
-    struct Loan {
-        uint256 amount;
-        uint256 collateralId;
-        address borrower;
-        bool active;
-    }
-
-    mapping(uint256 => Loan) public loans;
-
-    // Users pay a fee to "pool" their art for potential borrowing
-    function depositCollateral(address nftAddress, uint256 tokenId) external payable {
-        require(msg.value >= TX_FEE, "Insufficient transaction fee");
-        
-        IERC721(nftAddress).transferFrom(msg.sender, address(this), tokenId);
-        
-        // Logic to add to the pool and enable borrowing would go here
-    }
+    // Transfer NFT to this contract as collateral
+    IERC721(nftContract).transferFrom(msg.sender, address(this), tokenId);
+    
+    // Logic: If pool is 100 ETH, maybe let them borrow 0.5 ETH
+    uint256 maxLoan = calculateMaxLoan(nftContract, tokenId);
+    borrowableAmount[msg.sender] += maxLoan;
 }
