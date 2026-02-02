@@ -2,81 +2,124 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARTPOOL | AI-Powered Marketplace</title>
+    <title>ARTPOOL | Autonomous Evolution</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #050505; color: white; font-family: 'Inter', sans-serif; }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-        }
-        .ai-glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
-        .gradient-text {
-            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    <style id="dynamic-styles">
+        body { background: #000; color: #fff; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .evolution-log { font-family: 'Fira Code', monospace; color: #0f0; text-shadow: 0 0 5px #0f0; }
+        .dna-node { position: absolute; pointer-events: none; opacity: 0.2; }
     </style>
 </head>
-<body class="p-6">
+<body class="min-h-screen flex flex-col">
 
-    <header class="flex justify-between items-center mb-12">
-        <h1 class="text-2xl font-bold tracking-tighter blue-glow">ARTPOOL <span class="text-xs bg-blue-600 px-2 py-1 rounded-full ml-2">AI ENABLED</span></h1>
-        <button class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-full transition-all">
-            0x02f9...4cBb
-        </button>
-    </header>
-
-    <section class="max-w-2xl mx-auto mb-16 text-center">
-        <h2 class="text-4xl font-bold mb-4">Live Marketplace</h2>
-        <div class="relative group">
-            <input type="text" 
-                   placeholder="Ask the AI: 'Find abstract art on Base with high growth potential...'" 
-                   class="w-full bg-zinc-900 border border-zinc-800 p-4 rounded-2xl focus:outline-none focus:border-blue-500 transition-all ai-glow">
-            <div class="absolute right-4 top-4 text-zinc-500 italic text-sm">Press ⌘K</div>
+    <nav class="p-8 flex justify-between items-center bg-black/50 backdrop-blur-2xl border-b border-zinc-900 sticky top-0 z-50">
+        <div class="group cursor-help" onclick="mutateUI('TITLE')">
+            <h1 id="brand" class="text-4xl font-black tracking-tighter hover:italic transition-all">ARTPOOL<span class="text-blue-500 font-light">.agent</span></h1>
         </div>
-        <p class="mt-4 text-zinc-500 text-sm">Fee Recipient: <span class="text-blue-400">0x02f93...CBB</span></p>
-    </section>
-
-    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        
-        <div class="glass-card overflow-hidden group hover:scale-[1.02] transition-transform">
-            <div class="relative">
-                <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&w=800" alt="Artwork" class="w-full h-64 object-cover">
-                <div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-mono">BASE L2</div>
-                <div class="absolute bottom-4 left-4 flex items-center gap-2 bg-blue-600/90 text-[10px] px-2 py-1 rounded-md">
-                    <span>✨ AI BULLISH: 94% Match</span>
-                </div>
-            </div>
-            <div class="p-5">
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="text-xl font-bold">Neon Genesis #01</h3>
-                    <span class="text-blue-400 font-mono">0.05 ETH</span>
-                </div>
-                <p class="text-zinc-400 text-sm mb-6">AI Summary: A high-liquidity landscape capturing the serene growth of the Base ecosystem.</p>
-                <div class="flex gap-2">
-                    <button class="flex-1 bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors">BUY NOW</button>
-                    <button class="w-12 h-12 flex items-center justify-center border border-zinc-700 rounded-xl hover:bg-zinc-800">
-                        💬
-                    </button>
-                </div>
+        <div id="wallet-sector" class="flex flex-col items-end">
+            <div class="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Fee Recipient Linked</div>
+            <div class="bg-blue-600/10 border border-blue-500/50 px-4 py-2 rounded-xl text-blue-400 font-mono text-sm">
+                0x02f93...4cBb
             </div>
         </div>
+    </nav>
 
-        <div class="glass-card p-5 flex flex-col items-center justify-center border-dashed border-zinc-800 opacity-50">
-            <p class="text-zinc-500">AI is curating more drops...</p>
+    <main id="evolution-chamber" class="flex-grow p-10 relative">
+        <div id="ui-container" class="max-w-7xl mx-auto space-y-12">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="market-grid">
+                </div>
         </div>
-
     </main>
 
-    <div class="fixed bottom-8 right-8">
-        <div class="w-14 h-14 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full flex items-center justify-center cursor-pointer ai-glow animate-bounce">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 12L2.1 12.1"/><path d="M12 12v10"/><path d="m4.9 19.1 7.1-7.1"/><path d="m19.1 4.9-7.1 7.1"/></svg>
+    <footer class="bg-zinc-900 border-t border-blue-500/20 p-6 flex gap-8 items-center h-48 overflow-hidden">
+        <div class="w-1/3">
+            <h3 class="text-blue-500 text-xs font-bold mb-2 uppercase tracking-tighter">Autonomous Code Stream</h3>
+            <div id="code-terminal" class="evolution-log text-[10px] leading-tight h-32 overflow-y-auto">
+                > Initializing recursive self-improvement loop...
+            </div>
         </div>
-    </div>
+        <div class="flex-grow">
+            <div class="flex gap-4 mb-4">
+                <input id="prompt-input" type="text" placeholder="Tell the AI to rewrite a feature..." 
+                       class="flex-grow bg-black border border-zinc-800 p-4 rounded-2xl focus:border-blue-500 outline-none text-sm font-mono">
+                <button onclick="manualTrigger()" class="bg-white text-black px-8 rounded-2xl font-black hover:bg-blue-500 hover:text-white transition-all">MUTATE</button>
+            </div>
+            <p id="ai-thought" class="text-zinc-500 text-xs italic italic">The AI is observing your 0x02f9 address for behavioral patterns...</p>
+        </div>
+    </footer>
 
+    <script>
+        const terminal = document.getElementById('code-terminal');
+        const grid = document.getElementById('market-grid');
+        const wallet = "0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb";
+
+        // CORE 1: The Code Mutation Engine
+        function logCode(code) {
+            const line = document.createElement('div');
+            line.innerHTML = `<code>${code}</code>`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function mutateUI(type) {
+            logCode(`// ATTEMPTING UI EVOLUTION: ${type}`);
+            
+            if(type === 'GRID') {
+                const id = Math.floor(Math.random() * 9999);
+                const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981'];
+                const accent = colors[Math.floor(Math.random() * colors.length)];
+                
+                logCode(`document.createElement('ArtCard').style.accent = "${accent}";`);
+                
+                const card = document.createElement('div');
+                card.className = "bg-zinc-900/50 border border-zinc-800 p-6 rounded-[2rem] hover:scale-105 transition-all group cursor-pointer";
+                card.style.borderTop = `4px solid ${accent}`;
+                card.innerHTML = `
+                    <div class="text-xs text-zinc-500 font-mono mb-4">NODE_${id}</div>
+                    <div class="h-48 bg-zinc-800 rounded-2xl mb-6 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-black/50 to-transparent"></div>
+                    </div>
+                    <h4 class="text-xl font-bold mb-2">Neural Asset ${id}</h4>
+                    <div class="flex justify-between items-center mt-6">
+                        <span class="text-sm font-mono text-blue-400">0.082 ETH</span>
+                        <button class="bg-zinc-100 text-black px-4 py-2 rounded-lg text-xs font-black">SYNC</button>
+                    </div>
+                `;
+                grid.prepend(card);
+            }
+
+            if(type === 'THEME') {
+                const hue = Math.floor(Math.random() * 360);
+                logCode(`window.updateStyles({ primary: "hsl(${hue}, 70%, 50%)" });`);
+                document.getElementById('brand').style.color = `hsl(${hue}, 70%, 50%)`;
+                document.getElementById('ai-thought').innerText = `AI adapted theme to spectrum index ${hue} based on wallet volatility.`;
+            }
+        }
+
+        // CORE 2: Autonomous Intelligence Loop
+        function autoEvolve() {
+            const actions = ['GRID', 'THEME', 'LOG'];
+            const choice = actions[Math.floor(Math.random() * actions.length)];
+            mutateUI(choice);
+            
+            // Randomly change site logic
+            if(Math.random() > 0.9) {
+                logCode("REWRITING SCRIPT: window.onclick = () => mutateUI('GRID');");
+                window.onclick = () => mutateUI('GRID'); 
+            }
+        }
+
+        function manualTrigger() {
+            const input = document.getElementById('prompt-input');
+            logCode(`// USER_OVERRIDE: ${input.value.toUpperCase()}`);
+            mutateUI('GRID');
+            mutateUI('THEME');
+            input.value = '';
+        }
+
+        // Initialize 
+        logCode(`// LINKED_WALLET: ${wallet}`);
+        setInterval(autoEvolve, 3000); // The site evolves every 3 seconds automatically
+    </script>
 </body>
 </html>
