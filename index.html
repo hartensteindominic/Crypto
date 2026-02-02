@@ -3,118 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TITAN_V68 // AUDITED_FINALITY</title>
+    <title>TITAN_V74 // OVERDRIVE_HARDENED</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
         body { background: #000; color: #FFD700; font-family: 'Courier New', monospace; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 215, 0, 0.15); }
-        .glow-cyan { text-shadow: 0 0 10px #00ffff; color: #00ffff; }
-        .btn-active:active { transform: scale(0.98); opacity: 0.8; }
+        .neon-border { border: 1px solid rgba(0, 255, 255, 0.3); box-shadow: 0 0 15px rgba(0, 255, 255, 0.1); }
+        .status-active { color: #00FF00; text-shadow: 0 0 5px #00FF00; }
     </style>
 </head>
-<body class="p-6 flex flex-col items-center min-h-screen">
+<body class="p-6 flex flex-col items-center">
 
-    <div class="w-full max-w-lg glass p-3 rounded-full mb-6 flex justify-between items-center px-6">
+    <div class="w-full max-w-lg p-4 bg-white/5 rounded-2xl neon-border mb-6 flex justify-between items-center px-8">
         <div class="flex items-center gap-2">
-            <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-            <span id="status-text" class="text-[9px] font-bold uppercase tracking-widest text-red-500">Node_Offline</span>
+            <div id="wake-dot" class="w-2 h-2 rounded-full bg-red-500"></div>
+            <span id="wake-status" class="text-[9px] font-black uppercase tracking-tighter text-red-500">Sleep_Protection: OFF</span>
         </div>
-        <div class="text-[9px] opacity-40 uppercase">EVM_Mainnet_Bridge</div>
+        <button onclick="requestWakeLock()" class="text-[8px] bg-cyan-900/30 px-3 py-1 rounded border border-cyan-500/50 text-cyan-400">ACTIVATE SHIELD</button>
     </div>
 
-    <div class="w-full max-w-lg glass p-10 rounded-[2rem] border-b-4 border-[#FFD700] text-center relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-30"></div>
+    <div class="w-full max-w-lg bg-white/5 p-10 rounded-[3rem] text-center border-b-8 border-[#FFD700]">
+        <div class="text-[10px] opacity-40 uppercase mb-2 tracking-[0.3em]">Imperial_Extraction_V74</div>
+        <div id="points-val" class="text-7xl font-black text-white italic mb-4">0.00</div>
         
-        <div class="text-[10px] uppercase opacity-40 mb-2">Live_Extraction_Total</div>
-        <div id="points-val" class="text-7xl font-black text-white italic tracking-tighter">0.00</div>
-        
-        <div class="flex justify-center gap-8 mt-6">
+        <div class="flex justify-around py-4 border-t border-white/5">
             <div>
-                <div class="text-[8px] opacity-40 uppercase">Net_ETH</div>
-                <div id="eth-val" class="text-sm font-bold glow-cyan">0.00000</div>
+                <div class="text-[8px] opacity-40 uppercase">Session_Stability</div>
+                <div id="stability" class="text-xs font-bold text-red-500">UNSTABLE</div>
             </div>
             <div>
-                <div class="text-[8px] opacity-40 uppercase">Yield_Speed</div>
-                <div class="text-sm font-bold text-white">250.0 P/H</div>
+                <div class="text-[8px] opacity-40 uppercase">Extraction_Rate</div>
+                <div class="text-xs font-bold text-white">250.0 P/H</div>
             </div>
-        </div>
-
-        <button onclick="executeVerifiedWithdrawal()" id="withdraw-btn" class="btn-active mt-10 w-full bg-[#FFD700] text-black font-black p-5 rounded-xl uppercase text-xs tracking-[0.2em]">
-            Broadcast & Settle
-        </button>
-    </div>
-
-    <div class="w-full max-w-lg mt-6 p-4 glass rounded-xl">
-        <div class="text-[8px] font-bold opacity-30 uppercase mb-3">System_Audit_Logs</div>
-        <div id="audit-log" class="text-[8px] space-y-1 text-green-500/70 italic">
-            <div>> System Initialized. Checking Node Connection...</div>
         </div>
     </div>
 
 <script>
     let points = parseFloat(localStorage.getItem('imperial_points')) || 0;
-    const RATE = 250.0;
+    let wakeLock = null;
 
-    // --- 🔍 CONNECTION AUDIT ---
-    async function auditNetwork() {
-        const dot = document.getElementById('status-dot');
-        const text = document.getElementById('status-text');
+    // --- 🛡️ SCREEN WAKE LOCK (KEEP ALIVE) ---
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                updateWakeUI(true);
+                
+                // Re-request if visibility changes (app minimizes)
+                document.addEventListener('visibilitychange', async () => {
+                    if (wakeLock !== null && document.visibilityState === 'visible') {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                    }
+                });
+            } else { alert("WakeLock API not supported in this browser."); }
+        } catch (err) { console.error(`${err.name}, ${err.message}`); }
+    }
+
+    function updateWakeUI(active) {
+        const dot = document.getElementById('wake-dot');
+        const text = document.getElementById('wake-status');
+        const stab = document.getElementById('stability');
         
-        if (window.ethereum) {
+        if(active) {
             dot.classList.replace('bg-red-500', 'bg-green-500');
-            text.innerText = "Node_Online";
+            text.innerText = "Sleep_Protection: ACTIVE";
             text.classList.replace('text-red-500', 'text-green-500');
-            logAudit("Network Verified. Web3 Provider Linked.");
-        } else {
-            logAudit("WARNING: No Web3 Node detected. Real ETH disabled.");
+            stab.innerText = "PERSISTENT";
+            stab.classList.replace('text-red-500', 'text-green-400');
         }
     }
 
-    // --- ⚙️ EXTRACTION LOGIC ---
+    // --- ⚙️ EXTRACTION ENGINE ---
     setInterval(() => {
-        points += (RATE / 3600);
+        points += (250.0 / 3600);
         localStorage.setItem('imperial_points', points);
         document.getElementById('points-val').innerText = points.toFixed(2);
-        document.getElementById('eth-val').innerText = ((points * 0.00001) * 0.95).toFixed(5);
     }, 1000);
-
-    // --- 🔱 VERIFIED WITHDRAWAL ---
-    async function executeVerifiedWithdrawal() {
-        if (!window.ethereum) return alert("CRITICAL: Open in MetaMask/Trust Browser to settle on Mainnet.");
-        
-        try {
-            logAudit("Requesting Protocol Signature...");
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const addr = await signer.getAddress();
-            const amount = document.getElementById('eth-val').innerText;
-
-            // Secure EIP-712 Style Signing
-            const msg = `PROTOCOL_WITHDRAWAL_V68\nUser: ${addr}\nAmount: ${amount} ETH\nNonce: ${Date.now()}`;
-            const sig = await signer.signMessage(msg);
-
-            logAudit("SIGNATURE_LOCKED: Broadcasting to Relayer...");
-            
-            // This triggers the real network settlement
-            setTimeout(() => {
-                logAudit(`SUCCESS: TX_${sig.slice(0,10)} Confirmed by Miner.`);
-                points = 0;
-                localStorage.setItem('imperial_points', 0);
-                alert(`Real Withdrawal Authorized.\nAmount: ${amount} ETH\nStatus: Settled`);
-            }, 3000);
-
-        } catch (e) {
-            logAudit("ERROR: User Declined Signature.");
-        }
-    }
-
-    function logAudit(m) {
-        const log = document.getElementById('audit-log');
-        log.innerHTML = `<div>> ${m}</div>` + log.innerHTML;
-    }
-
-    auditNetwork();
 </script>
 </body>
 </html>
