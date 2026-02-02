@@ -1,58 +1,56 @@
-import React, { useState } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseEther } from 'viem';
-
-const CONTRACT_ADDRESS = '0xYourDeployedContractAddress'; 
-const MY_WALLET = '0x02f93c7547309ca50EEAB446DaEBE8ce8E694cBb';
+/* ... existing imports and Toast logic ... */
 
 export default function App() {
-  const { address, isConnected } = useAccount();
-  const [tokenId, setTokenId] = useState('');
-  
-  // 1. Hook to send the transaction
-  const { data: hash, writeContract, isPending } = useWriteContract();
-
-  // 2. Hook to wait for the blockchain to confirm
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
+  // Mock data for now - you can connect this to your contract later
+  const stats = [
+    { label: "Collateral Deposited", value: "2 NFTs", color: "text-white" },
+    { label: "Borrowing Limit", value: "0.50 ETH", color: "text-green-400" },
+    { label: "Active Loans", value: "0.12 ETH", color: "text-blue-400" },
+  ];
 
   return (
-    <div className="relative min-h-screen bg-black text-white p-8">
-      
-      {/* SUCCESS TOAST NOTIFICATION */}
-      {isSuccess && (
-        <div className="fixed top-5 right-5 bg-green-600 border border-green-400 p-4 rounded-2xl shadow-2xl animate-bounce z-50 max-w-xs">
-          <p className="font-bold text-sm">Success! 🎉</p>
-          <p className="text-xs opacity-90">0.001 ETH fee sent to {MY_WALLET.slice(0,6)}...{MY_WALLET.slice(-4)}</p>
-          <a href={`https://basescan.org/tx/${hash}`} target="_blank" className="text-[10px] underline block mt-2">View on BaseScan</a>
+    <div className="min-h-screen bg-black text-white p-8">
+      {/* ... Success Toast ... */}
+
+      <div className="max-w-5xl mx-auto">
+        <header className="flex justify-between items-center mb-12">
+          <h1 className="text-3xl font-black italic tracking-tighter text-blue-500">ARTPOOL.BASE</h1>
+          <div className="px-4 py-2 bg-gray-900 border border-gray-800 rounded-full text-xs font-mono">
+            {address ? `Connected: ${address.slice(0,6)}...` : 'Not Connected'}
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-3 gap-6 mb-12">
+          {stats.map((stat) => (
+            <div key={stat.label} className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
+              <p className="text-gray-500 text-xs uppercase font-bold mb-2">{stat.label}</p>
+              <p className={`text-2xl font-mono ${stat.color}`}>{stat.value}</p>
+            </div>
+          ))}
         </div>
-      )}
 
-      <div className="max-w-md mx-auto bg-gray-900 border border-gray-800 p-8 rounded-3xl mt-20">
-        <h1 className="text-2xl font-bold mb-6">ArtPool Collateral</h1>
-        
-        <input 
-          placeholder="NFT Token ID" 
-          className="w-full p-4 bg-black border border-gray-700 rounded-xl mb-4"
-          onChange={(e) => setTokenId(e.target.value)}
-        />
+        <div className="grid md:grid-cols-2 gap-12">
+          {/* Left: Deposit Action */}
+          <section className="bg-gray-900/50 p-8 rounded-3xl border border-gray-800">
+            <h2 className="text-xl font-bold mb-6">Deposit Artwork</h2>
+            {/* ... NFT Input and Pay Fee Button from previous steps ... */}
+          </section>
 
-        <button 
-          disabled={isPending || isConfirming}
-          className={`w-full py-4 rounded-xl font-bold transition-all ${
-            isPending || isConfirming ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'
-          }`}
-          onClick={() => writeContract({
-            address: CONTRACT_ADDRESS,
-            abi: ART_POOL_ABI, // Defined in previous step
-            functionName: 'depositArtAndPayFee',
-            args: ["0xNFT_CONTRACT_ADDRESS", BigInt(tokenId)],
-            value: parseEther('0.001'),
-          })}
-        >
-          {isPending ? 'Confirming in Wallet...' : isConfirming ? 'Verifying on Base...' : 'Deposit & Pay Fee'}
-        </button>
+          {/* Right: Active Assets List */}
+          <section>
+            <h2 className="text-xl font-bold mb-6">Your Vault</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-900 rounded-xl border-l-4 border-blue-500">
+                <div>
+                  <p className="font-bold">Bored Ape #4021</p>
+                  <p className="text-xs text-gray-500">Valuation: 12.4 ETH</p>
+                </div>
+                <button className="text-xs bg-gray-800 px-3 py-1 rounded-md hover:bg-gray-700">Withdraw</button>
+              </div>
+              <p className="text-center text-gray-600 text-sm italic py-4">More assets arriving soon...</p>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
