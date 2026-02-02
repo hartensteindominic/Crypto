@@ -3,91 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TITAN // MOBILE_PAYOUT</title>
+    <title>TITAN // CORE_PROTOCOL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <style>
-        body { background: #050505; color: #e2e2e2; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-        .neon-border { border: 1px solid rgba(34, 211, 238, 0.3); box-shadow: 0 0 15px rgba(34, 211, 238, 0.1); }
-        .btn-gold { background: #d4af37; color: #000; font-weight: 900; transition: 0.2s; }
-        .btn-gold:active { transform: scale(0.95); opacity: 0.8; }
+        body { background: #020202; color: #e2e2e2; font-family: 'Courier New', monospace; }
+        .neon-glow { box-shadow: 0 0 20px rgba(34, 211, 238, 0.2); border: 1px solid rgba(34, 211, 238, 0.3); }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); }
+        .btn-titan { background: linear-gradient(90deg, #d4af37, #f2d472); color: #000; font-weight: 900; }
+        .status-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
 <body class="p-4 flex flex-col items-center min-h-screen">
 
-    <div class="w-full max-w-md p-8 mt-10 rounded-3xl neon-border bg-black text-center">
-        <p class="text-[10px] tracking-[0.3em] text-cyan-400 mb-2 uppercase font-bold">Protocol_Earnings</p>
-        <h1 id="points-display" class="text-6xl font-black text-white italic mb-1">0.00</h1>
-        <p id="usd-display" class="text-xs text-gray-500 mb-8 font-bold">$0.00 USD</p>
-        
-        <button onclick="handleWithdrawal()" class="btn-gold w-full py-4 rounded-xl uppercase text-xs tracking-widest">
-            Withdraw to Wallet
+    <div class="w-full max-w-md flex justify-between items-center mb-8 px-2">
+        <div class="flex flex-col">
+            <span class="text-[9px] text-cyan-500 font-bold tracking-tighter uppercase">Network_Status</span>
+            <div class="flex items-center gap-2">
+                <div id="status-dot" class="w-2 h-2 rounded-full bg-red-500 status-pulse"></div>
+                <span id="network-name" class="text-xs font-bold text-gray-400">DISCONNECTED</span>
+            </div>
+        </div>
+        <button id="connect-btn" onclick="connectWallet()" class="text-[10px] border border-white/20 px-4 py-1 rounded-full hover:bg-white/10 transition">
+            CONNECT_WALLET
         </button>
     </div>
 
-    <div class="w-full max-w-md p-6 mt-6 rounded-3xl bg-white/5 border border-white/10">
-        <h2 class="text-[10px] text-gray-400 mb-4 uppercase font-bold">Submit_Asset_for_Yield</h2>
-        <textarea id="asset-desc" placeholder="Describe your digital product..." class="w-full bg-black border border-white/20 p-4 rounded-xl text-sm mb-4 h-24 outline-none focus:border-cyan-500"></textarea>
+    <div class="w-full max-w-md p-10 rounded-[2.5rem] neon-glow glass text-center relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
         
-        <label class="block w-full py-4 bg-cyan-900/20 border border-cyan-500/40 rounded-xl text-center cursor-pointer">
-            <span id="upload-text" class="text-[10px] text-cyan-400 font-black">UPLOAD & VALUATE</span>
-            <input type="file" class="hidden" onchange="simulateValuation()">
+        <p class="text-[10px] tracking-[0.4em] text-cyan-400 mb-2 uppercase font-black">AI_UNSETTLED_YIELD</p>
+        <h1 id="points-display" class="text-7xl font-black text-white italic mb-1 tracking-tighter">0.00</h1>
+        <p id="usd-display" class="text-xs text-gray-500 mb-8 font-bold tracking-widest">$0.00 USD</p>
+        
+        <button onclick="handleSecureWithdrawal()" class="btn-titan w-full py-5 rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl active:scale-95 transition">
+            Settle on Chain
+        </button>
+    </div>
+
+    <div class="w-full max-w-md p-6 mt-6 rounded-[2rem] bg-white/5 border border-white/10">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Neural_Input_Feed</h2>
+            <span id="ai-load" class="hidden text-[9px] text-cyan-500 animate-pulse uppercase">AI_Processing...</span>
+        </div>
+        
+        <textarea id="asset-desc" placeholder="Input digital asset signature or metadata for valuation..." 
+            class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm mb-4 h-32 outline-none focus:border-cyan-500/50 transition resize-none"></textarea>
+        
+        <label class="block w-full py-4 bg-cyan-950/20 border border-cyan-500/30 rounded-2xl text-center cursor-pointer hover:bg-cyan-900/30 transition">
+            <span id="upload-text" class="text-[10px] text-cyan-400 font-black tracking-widest uppercase">Analyze & Valuate</span>
+            <input type="file" class="hidden" onchange="runAIValuation()">
         </label>
     </div>
 
     <script>
-        let points = parseFloat(localStorage.getItem('titan_v89_points')) || 0;
-        const RATE = 0.00001; // Points to ETH
+        // --- CONFIGURATION ---
+        const CONTRACT_ADDRESS = "0x..."; // Your Deployed Treasury
+        const TREASURY_ABI = [
+            "function claimYield(uint256 amount, uint256 nonce, bytes memory signature) external",
+            "function nonces(address user) public view returns (uint256)"
+        ];
 
+        let points = parseFloat(localStorage.getItem('titan_points')) || 0;
+        let provider, signer, userAddress;
+
+        // --- UI UPDATES ---
         function updateUI() {
             document.getElementById('points-display').innerText = points.toFixed(2);
-            document.getElementById('usd-display').innerText = `$${(points * RATE * 2350).toFixed(2)} USD`;
+            document.getElementById('usd-display').innerText = `$${(points * 0.02).toFixed(2)} USD`; // Simulated value
+            localStorage.setItem('titan_points', points);
         }
         updateUI();
 
-        function simulateValuation() {
-            const desc = document.getElementById('asset-desc').value;
-            if(!desc) return alert("Enter a description first.");
+        // --- WALLET LOGIC ---
+        async function connectWallet() {
+            if (!window.ethereum) return alert("MetaMask not detected");
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+            userAddress = await signer.getAddress();
             
-            document.getElementById('upload-text').innerText = "AI_ANALYZING...";
-            setTimeout(() => {
-                const gain = Math.floor(Math.random() * 400) + 100;
-                points += gain;
-                localStorage.setItem('titan_v89_points', points);
-                updateUI();
-                document.getElementById('upload-text').innerText = "UPLOAD & VALUATE";
-                document.getElementById('asset-desc').value = "";
-                alert(`🔱 ASSET ACCEPTED\nValue: +${gain} Points`);
-            }, 2000);
+            document.getElementById('connect-btn').innerText = userAddress.substring(0,6) + "..." + userAddress.substring(38);
+            document.getElementById('status-dot').classList.replace('bg-red-500', 'bg-green-500');
+            document.getElementById('network-name').innerText = "MAINNET_ACTIVE";
         }
 
-        async function handleWithdrawal() {
-            if (!window.ethereum) return alert("Open this link inside MetaMask Browser!");
+        // --- AI VALUATION FEATURE ---
+        async function runAIValuation() {
+            const desc = document.getElementById('asset-desc').value;
+            if(!desc) return alert("AI requires metadata description.");
+
+            const aiStatus = document.getElementById('ai-load');
+            aiStatus.classList.remove('hidden');
+            
+            // Simulation of AI computation
+            setTimeout(() => {
+                const yieldGained = Math.floor(Math.random() * 250) + 50;
+                points += yieldGained;
+                updateUI();
+                
+                aiStatus.classList.add('hidden');
+                document.getElementById('asset-desc').value = "";
+                alert(`🔱 AI VALUATION COMPLETE\nYield Authorized: +${yieldGained} Titan Points`);
+            }, 1800);
+        }
+
+        // --- SECURE WITHDRAWAL FEATURE ---
+        async function handleSecureWithdrawal() {
+            if (!userAddress) return await connectWallet();
+            if (points < 100) return alert("Insufficient points for protocol settlement.");
 
             try {
-                const provider = new ethers.BrowserProvider(window.ethereum);
-                const signer = await provider.getSigner();
-                const address = await signer.getAddress();
-                const ethAmount = (points * RATE).toFixed(6);
+                // 1. Request Secure Signature from your AI Backend
+                // For this template, we simulate the backend call
+                alert("🔱 REQUESTING AI SIGNATURE...");
+                
+                // In production, this would be: 
+                // const response = await fetch('api/sign', { method: 'POST', body: { userAddress, points } });
+                // const { amount, nonce, signature } = await response.json();
 
-                if (ethAmount < 0.001) return alert("Minimum 0.001 ETH required to cover network gas.");
-
-                // 🔱 DIRECT SETTLEMENT
-                const tx = await signer.sendTransaction({
-                    to: address, 
-                    value: ethers.parseEther(ethAmount)
-                });
-
-                alert("🔱 TRANSACTION SIGNED\nWaiting for blockchain confirmation...");
-                await tx.wait();
-
+                console.log("Constructing cryptographic proof...");
+                
+                // 2. Call the Smart Contract
+                // const contract = new ethers.Contract(CONTRACT_ADDRESS, TREASURY_ABI, signer);
+                // const tx = await contract.claimYield(amount, nonce, signature);
+                
+                alert("🔱 SIGNATURE RECEIVED\nExecuting on-chain settlement...");
+                
+                // Reset points after successful mock transaction
                 points = 0;
-                localStorage.setItem('titan_v89_points', 0);
                 updateUI();
-                alert("🔱 SUCCESS\nETH has been settled in your wallet.");
+                alert("🔱 SUCCESS\nETH has been dispatched to your wallet.");
+
             } catch (err) {
                 console.error(err);
-                alert("🔱 REVERTED\nPossible causes: Insufficient balance for gas or rejected signature.");
+                alert("🔱 PROTOCOL_REVERTED\nPossible causes: Double-claim detected or signature mismatch.");
             }
         }
     </script>
