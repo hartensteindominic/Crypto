@@ -10,7 +10,7 @@
 <body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col items-center justify-center p-4">
     
     <nav class="w-full max-w-4xl flex justify-between items-center mb-12">
-        <h1 class="text-2xl font-bold text-blue-500">EtherFlow</h1>
+        <h1 class="text-2xl font-bold text-blue-500 font-mono">EtherFlow</h1>
         <button id="connectBtn" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full transition-all font-semibold">
             Connect Wallet
         </button>
@@ -19,7 +19,7 @@
     <main class="w-full max-w-2xl bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold mb-2">Claim Free ETH</h2>
-            <p id="statusMsg" class="text-gray-400 text-sm">MetaMask Browser Detected.</p>
+            <p id="statusMsg" class="text-gray-400 text-sm">Please connect in the MetaMask App browser.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
@@ -70,16 +70,17 @@
             
             if (typeof window.ethereum === 'undefined') {
                 log("Error: window.ethereum not found.", true);
+                alert("Please open this page inside the browser built into the MetaMask App.");
                 return;
             }
 
             try {
-                // Standard request for accounts
+                // EIP-1102 Standard: request accounts
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
                 if (accounts && accounts.length > 0) {
-                    // FIX: Grab the first element of the array (the string)
-                    userAddress = accounts; 
+                    // FIX: Ensure we treat the address as a string
+                    userAddress = String(accounts); 
                     log("Connected: " + userAddress.substring(0, 10) + "...");
                     
                     // Initialize Ethers v6 Provider
@@ -95,13 +96,13 @@
         async function updateUI() {
             if (!userAddress ||!provider) return;
             try {
-                log("Fetching balance...");
+                log("Fetching balance for " + userAddress.substring(0, 8) + "...");
                 const balance = await provider.getBalance(userAddress);
                 const ethBalance = ethers.formatEther(balance);
 
                 document.getElementById('userBalance').innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
                 document.getElementById('connectBtn').innerText = "Connected";
-                document.getElementById('connectBtn').classList.replace("bg-blue-600", "bg-green-600");
+                document.getElementById('connectBtn').style.backgroundColor = "#059669";
                 document.getElementById('statusMsg').innerText = "Wallet Ready.";
                 document.getElementById('claimBtn').disabled = false;
                 log("Dashboard updated successfully.");
@@ -115,7 +116,7 @@
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', function(accounts) {
                 if (accounts.length > 0) {
-                    userAddress = accounts;
+                    userAddress = String(accounts);
                     updateUI();
                 } else {
                     window.location.reload();
