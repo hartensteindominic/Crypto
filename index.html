@@ -19,7 +19,7 @@
     <main class="w-full max-w-2xl bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold mb-2">Claim Free ETH</h2>
-            <p id="statusMsg" class="text-gray-400 text-sm">Please connect in the MetaMask App browser.</p>
+            <p id="statusMsg" class="text-gray-400 text-sm">MetaMask Browser Detected.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
@@ -47,19 +47,17 @@
     </main>
 
     <div id="debugLog" class="mt-8 text-[10px] text-gray-500 font-mono w-full max-w-2xl bg-black/40 p-3 rounded-lg overflow-auto max-h-32 border border-gray-800">
-        System initialized. Waiting for user...
+        System initialized. Waiting for wallet...
     </div>
 
     <script>
-        // Simple logging function to see errors on your iPhone screen
-        function log(msg, isError = false) {
+        function log(msg, isError) {
             const el = document.getElementById('debugLog');
             const color = isError? "text-red-500" : "text-gray-400";
-            el.innerHTML += `<br/><span class="${color}">> ${msg}</span>`;
+            el.innerHTML += '<br/><span class="' + color + '">> ' + msg + '</span>';
             el.scrollTop = el.scrollHeight;
         }
 
-        // Catch and display any hidden errors that cause a white screen
         window.onerror = function(msg, url, line) {
             log("CRASH: " + msg + " (Line " + line + ")", true);
             return false;
@@ -71,19 +69,18 @@
             log("Attempting to connect...");
             
             if (typeof window.ethereum === 'undefined') {
-                log("Error: No wallet found. Are you using Chrome instead of MetaMask?", true);
-                alert("Please open this page inside the browser built into the MetaMask App.");
+                log("Error: window.ethereum not found.", true);
                 return;
             }
 
             try {
-                // Request access using the EIP-1102 standard
+                // Standard request for accounts
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
                 if (accounts && accounts.length > 0) {
-                    // FIX: Ensure we take the string from the first item in the list
+                    // FIX: Grab the first element of the array (the string)
                     userAddress = accounts; 
-                    log("Wallet connected: " + userAddress.substring(0, 10) + "...");
+                    log("Connected: " + userAddress.substring(0, 10) + "...");
                     
                     // Initialize Ethers v6 Provider
                     provider = new ethers.BrowserProvider(window.ethereum);
@@ -96,29 +93,27 @@
         }
 
         async function updateUI() {
+            if (!userAddress ||!provider) return;
             try {
-                log("Updating dashboard data...");
+                log("Fetching balance...");
                 const balance = await provider.getBalance(userAddress);
                 const ethBalance = ethers.formatEther(balance);
-                log("Current balance: " + ethBalance);
 
                 document.getElementById('userBalance').innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
                 document.getElementById('connectBtn').innerText = "Connected";
                 document.getElementById('connectBtn').classList.replace("bg-blue-600", "bg-green-600");
-                document.getElementById('statusMsg').innerText = "Wallet Active.";
+                document.getElementById('statusMsg').innerText = "Wallet Ready.";
                 document.getElementById('claimBtn').disabled = false;
-                log("UI Sync Complete.");
+                log("Dashboard updated successfully.");
             } catch (e) {
-                log("Dashboard Error: " + e.message, true);
+                log("UI Update Error: " + e.message, true);
             }
         }
 
-        // Attach listener to the button
         document.getElementById('connectBtn').onclick = connect;
 
-        // Auto-refresh UI if you switch accounts inside MetaMask
         if (window.ethereum) {
-            window.ethereum.on('accountsChanged', (accounts) => {
+            window.ethereum.on('accountsChanged', function(accounts) {
                 if (accounts.length > 0) {
                     userAddress = accounts;
                     updateUI();
