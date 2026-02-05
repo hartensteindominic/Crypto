@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EtherFlow | Ethereum Faucet 2026</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.15.0/ethers.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col items-center justify-center p-4">
@@ -18,17 +18,17 @@
     <main class="w-full max-w-2xl bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold mb-2">Claim Free ETH</h2>
-            <p id="statusMsg" class="text-gray-400 text-sm">Please connect your wallet to continue.</p>
+            <p id="statusMsg" class="text-gray-400 text-sm">Connect your wallet to start.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
             <div class="bg-gray-700 p-4 rounded-2xl">
-                <p class="text-xs text-gray-400 uppercase font-bold">Your Balance</p>
-                <p id="userBalance" class="text-xl font-mono text-blue-400">0.0000 ETH</p>
+                <p class="text-xs text-gray-400 uppercase font-bold text-center">Your Balance</p>
+                <p id="userBalance" class="text-xl font-mono text-blue-400 text-center">0.0000 ETH</p>
             </div>
             <div class="bg-gray-700 p-4 rounded-2xl">
-                <p class="text-xs text-gray-400 uppercase font-bold">Faucet Pool</p>
-                <p class="text-xl font-mono text-green-400">1.2500 ETH</p>
+                <p class="text-xs text-gray-400 uppercase font-bold text-center">Faucet Pool</p>
+                <p class="text-xl font-mono text-green-400 text-center">1.2500 ETH</p>
             </div>
         </div>
 
@@ -50,68 +50,65 @@
     </main>
 
     <script>
-        let provider, signer, userAddress;
+        let provider, userAddress;
 
         async function connectWallet() {
-            // Check if window.ethereum exists
             if (typeof window.ethereum === 'undefined') {
-                return alert("Mobile Chrome detected. To connect, please open this site inside the MetaMask or OKX App browser.");
+                return alert("Open this link inside the MetaMask app browser.");
             }
 
             try {
-                // Initialize the provider for Ethers v6
+                // Initialize Ethers v6
                 provider = new ethers.BrowserProvider(window.ethereum);
                 
-                // Request accounts - this triggers the wallet popup
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                // FIXED: Request accounts and grab only the FIRST one
+                const accounts = await provider.send("eth_requestAccounts",);
                 
                 if (accounts.length > 0) {
-                    userAddress = accounts;
+                    userAddress = accounts; // Specific address string, not the array
                     await updateUI();
                 }
             } catch (error) {
                 console.error("Connection Error:", error);
-                if (error.code === 4001) {
-                    alert("Connection rejected. Please approve the request in your wallet.");
-                } else {
-                    alert("Error: " + error.message);
-                }
+                alert("Error: " + error.message);
             }
         }
 
         async function updateUI() {
             if (!userAddress) return;
 
-            // Get balance
-            const balance = await provider.getBalance(userAddress);
-            const ethBalance = ethers.formatEther(balance);
+            try {
+                // Fetch balance using the string address
+                const balance = await provider.getBalance(userAddress);
+                const ethBalance = ethers.formatEther(balance);
 
-            // Update DOM
-            document.getElementById('walletAddress').innerText = userAddress;
-            document.getElementById('userBalance').innerText = `${parseFloat(ethBalance).toFixed(4)} ETH`;
-            document.getElementById('connectBtn').innerText = "Connected";
-            document.getElementById('connectBtn').classList.replace("bg-blue-600", "bg-green-600");
-            document.getElementById('statusMsg').innerText = "Wallet active on Ethereum L2.";
-            document.getElementById('claimBtn').disabled = false;
+                // Update UI elements
+                document.getElementById('walletAddress').innerText = "Active: " + userAddress;
+                document.getElementById('userBalance').innerText = `${parseFloat(ethBalance).toFixed(4)} ETH`;
+                document.getElementById('connectBtn').innerText = "Connected";
+                document.getElementById('connectBtn').classList.replace("bg-blue-600", "bg-green-600");
+                document.getElementById('statusMsg').innerText = "Wallet Ready.";
+                document.getElementById('claimBtn').disabled = false;
+            } catch (e) {
+                console.error("UI Update Failed", e);
+            }
         }
 
-        // Handle Account Changes (if user swaps accounts in MetaMask)
+        // Auto-refresh if user changes accounts in wallet
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) {
-                    location.reload(); // User disconnected
-                } else {
+                if (accounts.length === 0) location.reload();
+                else {
                     userAddress = accounts;
                     updateUI();
                 }
             });
-
             window.ethereum.on('chainChanged', () => location.reload());
         }
 
         document.getElementById('connectBtn').addEventListener('click', connectWallet);
         document.getElementById('claimBtn').addEventListener('click', () => {
-            alert("Claim logic requires a deployed Smart Contract. Ensure you have the Contract ABI and Address configured.");
+            alert("Claim logic requires a deployed contract. Payout simulated for demo.");
         });
     </script>
 </body>
