@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EtherFlow | Ethereum Faucet 2026</title>
+    <title>EtherFlow | Ethereum Faucet</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.15.0/ethers.umd.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col items-center justify-center p-4">
+    
     <nav class="w-full max-w-4xl flex justify-between items-center mb-12">
         <h1 class="text-2xl font-bold text-blue-500">EtherFlow</h1>
         <button id="connectBtn" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full transition-all font-semibold">
@@ -18,7 +19,7 @@
     <main class="w-full max-w-2xl bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold mb-2">Claim Free ETH</h2>
-            <p id="statusMsg" class="text-gray-400 text-sm">Connect your wallet to start.</p>
+            <p id="statusMsg" class="text-gray-400 text-sm">Please connect in the MetaMask App browser.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
@@ -32,7 +33,7 @@
             </div>
         </div>
 
-        <div class="bg-blue-900/20 border border-blue-500/30 p-6 rounded-2xl mb-8">
+        <div class="bg-blue-900/20 border border-blue-500/30 p-6 rounded-2xl">
             <div class="flex justify-between items-center">
                 <div>
                     <h3 class="font-bold text-lg">Daily Bonus</h3>
@@ -43,73 +44,89 @@
                 </button>
             </div>
         </div>
-
-        <div class="text-center text-xs text-gray-500">
-            <p id="walletAddress" class="truncate font-mono">Not Connected</p>
-        </div>
     </main>
 
+    <div id="debugLog" class="mt-8 text-[10px] text-gray-500 font-mono w-full max-w-2xl bg-black/40 p-3 rounded-lg overflow-auto max-h-32 border border-gray-800">
+        System initialized. Waiting for user...
+    </div>
+
     <script>
+        // Simple logging function to see errors on your iPhone screen
+        function log(msg, isError = false) {
+            const el = document.getElementById('debugLog');
+            const color = isError? "text-red-500" : "text-gray-400";
+            el.innerHTML += `<br/><span class="${color}">> ${msg}</span>`;
+            el.scrollTop = el.scrollHeight;
+        }
+
+        // Catch and display any hidden errors that cause a white screen
+        window.onerror = function(msg, url, line) {
+            log("CRASH: " + msg + " (Line " + line + ")", true);
+            return false;
+        };
+
         let provider, userAddress;
 
-        async function connectWallet() {
+        async function connect() {
+            log("Attempting to connect...");
+            
             if (typeof window.ethereum === 'undefined') {
-                return alert("Open this link inside the MetaMask app browser.");
+                log("Error: No wallet found. Are you using Chrome instead of MetaMask?", true);
+                alert("Please open this page inside the browser built into the MetaMask App.");
+                return;
             }
 
             try {
-                // Initialize Ethers v6
-                provider = new ethers.BrowserProvider(window.ethereum);
+                // Request access using the EIP-1102 standard
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
-                // FIXED: Request accounts and grab only the FIRST one
-                const accounts = await provider.send("eth_requestAccounts",);
-                
-                if (accounts.length > 0) {
-                    userAddress = accounts; // Specific address string, not the array
+                if (accounts && accounts.length > 0) {
+                    // FIX: Ensure we take the string from the first item in the list
+                    userAddress = accounts; 
+                    log("Wallet connected: " + userAddress.substring(0, 10) + "...");
+                    
+                    // Initialize Ethers v6 Provider
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    
                     await updateUI();
                 }
-            } catch (error) {
-                console.error("Connection Error:", error);
-                alert("Error: " + error.message);
+            } catch (err) {
+                log("Connection Failed: " + err.message, true);
             }
         }
 
         async function updateUI() {
-            if (!userAddress) return;
-
             try {
-                // Fetch balance using the string address
+                log("Updating dashboard data...");
                 const balance = await provider.getBalance(userAddress);
                 const ethBalance = ethers.formatEther(balance);
+                log("Current balance: " + ethBalance);
 
-                // Update UI elements
-                document.getElementById('walletAddress').innerText = "Active: " + userAddress;
-                document.getElementById('userBalance').innerText = `${parseFloat(ethBalance).toFixed(4)} ETH`;
+                document.getElementById('userBalance').innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
                 document.getElementById('connectBtn').innerText = "Connected";
                 document.getElementById('connectBtn').classList.replace("bg-blue-600", "bg-green-600");
-                document.getElementById('statusMsg').innerText = "Wallet Ready.";
+                document.getElementById('statusMsg').innerText = "Wallet Active.";
                 document.getElementById('claimBtn').disabled = false;
+                log("UI Sync Complete.");
             } catch (e) {
-                console.error("UI Update Failed", e);
+                log("Dashboard Error: " + e.message, true);
             }
         }
 
-        // Auto-refresh if user changes accounts in wallet
+        // Attach listener to the button
+        document.getElementById('connectBtn').onclick = connect;
+
+        // Auto-refresh UI if you switch accounts inside MetaMask
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) location.reload();
-                else {
+                if (accounts.length > 0) {
                     userAddress = accounts;
                     updateUI();
+                } else {
+                    window.location.reload();
                 }
             });
-            window.ethereum.on('chainChanged', () => location.reload());
         }
-
-        document.getElementById('connectBtn').addEventListener('click', connectWallet);
-        document.getElementById('claimBtn').addEventListener('click', () => {
-            alert("Claim logic requires a deployed contract. Payout simulated for demo.");
-        });
     </script>
 </body>
 </html>
