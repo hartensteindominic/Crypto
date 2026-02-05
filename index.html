@@ -18,17 +18,17 @@
     <main class="w-full max-w-2xl bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
         <div class="text-center mb-8">
             <h2 class="text-3xl font-bold mb-2">Claim Free ETH</h2>
-            <p class="text-gray-400 text-sm">Automated distributions via EIP-7702 gas sponsorship.</p>
+            <p id="statusMsg" class="text-gray-400 text-sm">Please connect your wallet to continue.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
             <div class="bg-gray-700 p-4 rounded-2xl">
                 <p class="text-xs text-gray-400 uppercase font-bold">Your Balance</p>
-                <p id="userBalance" class="text-xl">0.00 ETH</p>
+                <p id="userBalance" class="text-xl font-mono text-blue-400">0.0000 ETH</p>
             </div>
             <div class="bg-gray-700 p-4 rounded-2xl">
                 <p class="text-xs text-gray-400 uppercase font-bold">Faucet Pool</p>
-                <p id="faucetBalance" class="text-xl">1.25 ETH</p>
+                <p class="text-xl font-mono text-green-400">1.2500 ETH</p>
             </div>
         </div>
 
@@ -39,73 +39,79 @@
                     <p class="text-sm text-blue-300">0.001 ETH Reward</p>
                 </div>
                 <button id="claimBtn" disabled class="bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-400 px-8 py-3 rounded-xl font-bold transition-all">
-                    Claim Reward
+                    Claim
                 </button>
             </div>
         </div>
 
-        <div class="text-center text-sm text-gray-500">
-            <p id="walletAddress" class="truncate">Connection required.</p>
+        <div class="text-center text-xs text-gray-500">
+            <p id="walletAddress" class="truncate font-mono">Not Connected</p>
         </div>
     </main>
 
     <script>
         let provider, signer, userAddress;
 
-        /** 
-         * Important: Browser wallets require a secure context (https) or localhost.
-         * If opening via file://, the 'window.ethereum' object might not inject properly.
-         */
         async function connectWallet() {
-            if (!window.ethereum) {
-                return alert("No wallet extension found. Please install MetaMask or OKX Wallet.");
+            // Check if window.ethereum exists
+            if (typeof window.ethereum === 'undefined') {
+                return alert("Mobile Chrome detected. To connect, please open this site inside the MetaMask or OKX App browser.");
             }
 
             try {
-                // Initialize Ethers v6 BrowserProvider
+                // Initialize the provider for Ethers v6
                 provider = new ethers.BrowserProvider(window.ethereum);
                 
-                // Request account access
-                const accounts = await provider.send("eth_requestAccounts",);
+                // Request accounts - this triggers the wallet popup
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
                 if (accounts.length > 0) {
-                    await setupSession(accounts);
+                    userAddress = accounts;
+                    await updateUI();
                 }
             } catch (error) {
-                console.error("Connection failed:", error);
-                if (error.code === 4001) alert("Connection rejected by user.");
-                else alert("An error occurred. Check your wallet status.");
+                console.error("Connection Error:", error);
+                if (error.code === 4001) {
+                    alert("Connection rejected. Please approve the request in your wallet.");
+                } else {
+                    alert("Error: " + error.message);
+                }
             }
         }
 
-        async function setupSession(address) {
-            userAddress = address;
-            signer = await provider.getSigner();
+        async function updateUI() {
+            if (!userAddress) return;
 
-            // Fetch and format balance
+            // Get balance
             const balance = await provider.getBalance(userAddress);
-            const formattedBalance = ethers.formatEther(balance);
+            const ethBalance = ethers.formatEther(balance);
 
-            // Update UI elements
-            document.getElementById('walletAddress').innerText = `Address: ${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-            document.getElementById('userBalance').innerText = `${parseFloat(formattedBalance).toFixed(4)} ETH`;
+            // Update DOM
+            document.getElementById('walletAddress').innerText = userAddress;
+            document.getElementById('userBalance').innerText = `${parseFloat(ethBalance).toFixed(4)} ETH`;
             document.getElementById('connectBtn').innerText = "Connected";
             document.getElementById('connectBtn').classList.replace("bg-blue-600", "bg-green-600");
+            document.getElementById('statusMsg').innerText = "Wallet active on Ethereum L2.";
             document.getElementById('claimBtn').disabled = false;
         }
 
-        // Listen for account changes
+        // Handle Account Changes (if user swaps accounts in MetaMask)
         if (window.ethereum) {
             window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) window.location.reload();
-                else setupSession(accounts);
+                if (accounts.length === 0) {
+                    location.reload(); // User disconnected
+                } else {
+                    userAddress = accounts;
+                    updateUI();
+                }
             });
+
+            window.ethereum.on('chainChanged', () => location.reload());
         }
 
         document.getElementById('connectBtn').addEventListener('click', connectWallet);
-        
         document.getElementById('claimBtn').addEventListener('click', () => {
-            alert("Claim processing... Rewards will arrive on your L2 network shortly.");
+            alert("Claim logic requires a deployed Smart Contract. Ensure you have the Contract ABI and Address configured.");
         });
     </script>
 </body>
