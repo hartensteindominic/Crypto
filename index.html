@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spatial 3D Map Processor – Camera Sensor Pipeline Edition</title>
+<title>Spatial Mapping Processor • 4D WebM Pipeline</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#030712;color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;height:100vh;display:flex;overflow:hidden}
@@ -40,29 +40,29 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 </head>
 <body>
 <div id="sidebar">
-<div class="brand">SPATIAL 3D PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">CAMERA SENSOR PIPELINE • 4D READY</span></div>
+<div class="brand">SPATIAL MAPPING PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">MAPPING PIPELINE • 4D WEBM READY</span></div>
 <div class="action-toggle-row">
 <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
-<button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste Sensor</button>
-<button id="btn-tab-scan" class="tab-btn" onclick="switchInputMode('scan')">👤 Live</button>
+<button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste Data</button>
+<button id="btn-tab-scan" class="tab-btn" onclick="switchInputMode('scan')">👤 Live Map</button>
 </div>
 <div id="panel-file" class="section-card">
-<div class="card-title">Data Input • Accepts Sensor Output</div>
+<div class="card-title">Mapping Data Input</div>
 <div id="drop-zone" class="upload-section" onclick="document.getElementById('file-input').click()">
-<span class="upload-label">Drop JSON from MAX SPEED sensor<br><small style="opacity:.6">Fixes string vertices automatically</small></span>
+<span class="upload-label">Drop Spatial JSON map payload<br><small style="opacity:.6">Parses strings & coordinate matrices</small></span>
 <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(event)">
 </div>
 <div style="display:flex;gap:6px"><button class="secondary-btn" style="flex:1" onclick="clearScene()">Clear</button><button class="secondary-btn" style="flex:1" onclick="loadVaultList()">Vault</button></div>
 </div>
 <div id="panel-paste" class="section-card" style="display:none">
-<div class="card-title">Paste Camera Sensor Payload</div>
-<textarea id="json-paste-box" placeholder='Paste from your sensor: {"version":"5.0","frames":[{"frameIndex":0,"geometryStream":{"vertices":["0.12","-1.10"...]}}]}'></textarea>
-<button class="primary-btn" onclick="handleCodePaste()">Process & Produce 4D</button>
+<div class="card-title">Paste Mapping Payload</div>
+<textarea id="json-paste-box" placeholder='Paste JSON map: {"version":"5.0","frames":[{"frameIndex":0,"geometryStream":{"vertices":["0.12","-1.10"...]}}]}'></textarea>
+<button class="primary-btn" onclick="handleCodePaste()">Process Map Sequence</button>
 </div>
 <div id="panel-scan" class="section-card" style="display:none">
-<div class="card-title">Live 4D Recording</div>
+<div class="card-title">Live Spatial 4D Recording</div>
 <button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">RECORD 4D STREAM</button>
-<button class="primary-btn" onclick="exportScannedMap()" style="background:#059669;">Export + Vault</button>
+<button class="primary-btn" onclick="exportScannedMap()" style="background:#059669;">Export Map + Vault</button>
 </div>
 <div class="section-card">
 <div class="card-title">Volumetric Tuning</div>
@@ -77,21 +77,21 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 <div id="vault-list" style="display:flex;flex-direction:column;gap:6px;max-height:110px;overflow-y:auto"><small style="color:#64748b">Empty</small></div>
 </div>
 <div class="section-card">
-<div class="card-title">Produce 4D Image</div>
+<div class="card-title">Produce 4D Outputs</div>
 <div style="display:flex;flex-direction:column;gap:6px">
-<button class="primary-btn" onclick="exportCurrentPNG()" style="background:#0f766e;">📸 Snapshot PNG (4D Frame)</button>
+<button class="primary-btn" onclick="exportCurrentPNG()" style="background:#0f766e;">📸 Snapshot PNG (Frame)</button>
 <button class="primary-btn" onclick="export4DPhotoGIF()" style="background:#7c3aed;">Export Orbit GIF 360°</button>
-<button class="primary-btn" onclick="export4DWebMVideo()" style="background:#2563eb;">Export 4D Video.webm</button>
+<button class="primary-btn" onclick="export4DWebMVideo()" style="background:#2563eb;">🎥 Export 4D Video (.webm)</button>
 </div>
 </div>
 <div class="section-card" style="flex:1">
 <div class="card-title">Console</div>
-<div id="chat-container"><div class="chat-message system">Pipeline ready for camera sensor → 4D image.</div></div>
+<div id="chat-container"><div class="chat-message system">Mapping processor pipeline ready.</div></div>
 <div style="display:flex;gap:6px;margin-top:4px"><input type="text" id="chat-input" placeholder="Query..." onkeypress="handleKeyPress(event)"><button class="primary-btn" onclick="sendChatMessage()">Send</button></div>
 </div>
 </div>
 <div id="viewer-container">
-<div class="stats-overlay">Status: <span id="render-status">Awaiting Sensor Data</span><br><span id="bbox-info" style="font-size:10px;color:#64748b"></span></div>
+<div class="stats-overlay">Status: <span id="render-status">Awaiting Mapping Data</span><br><span id="bbox-info" style="font-size:10px;color:#64748b"></span></div>
 <video id="webcam-video" autoplay playsinline muted style="display:none"></video>
 <video id="webcam-preview" autoplay playsinline muted></video>
 <canvas id="three-canvas"></canvas>
@@ -131,7 +131,6 @@ function appendChat(t,s=''){const b=document.getElementById('chat-container'); c
 function clearScene(){is4DPlayMode=false; playbackFrames=[]; playbackFrameIndex=0; if(pointCloudObject){scene.remove(pointCloudObject); pointCloudObject.geometry.dispose(); pointCloudObject.material.dispose(); pointCloudObject=null} document.getElementById('node-counter').innerText='0'; document.getElementById('render-status').innerText='Cleared'; document.getElementById('bbox-info').innerText=''; setProgress(0)}
 function updatePointSize(v){if(pointCloudObject)pointCloudObject.material.size=parseFloat(v)} function updateDepthScale(v){currentDepthScale=parseFloat(v)} function updateFPS(v){currentFPS=parseInt(v); document.getElementById('fps-label').innerText=v} function toggleGrid(v){if(gridHelper)gridHelper.visible=v}
 
-// --- SENSOR PIPELINE FIX: STRING -> NUMBER ---
 function toNumberArray(arr){
  if(!arr) return []; const out=[]; for(let i=0;i<arr.length;i++){const n=parseFloat(arr[i]); if(isFinite(n)) out.push(n);} return out;
 }
@@ -145,7 +144,6 @@ function extractSequence(data){
   let v=f.vertices || f.positions || f.geometryStream?.positions || f.geometryStream?.vertices || [];
   let c=f.colors || f.geometryStream?.colors || [];
   v=toNumberArray(v); c=toNumberArray(c);
-  // truncate to multiple of 3
   const rem=v.length%3; if(rem!==0) v=v.slice(0,v.length-rem);
   if(c.length!==v.length) { if(c.length===0) c=null; else c=c.slice(0,v.length); }
   return {vertices:v, colors:c||[]};
@@ -172,18 +170,18 @@ function normalizeAll(frames){
 }
 function processEnvironmentData(data){
  try{
-  setProgress(10); appendChat('Ingesting sensor payload... converting string verts → float32','system');
+  setProgress(10); appendChat('Ingesting map payload... parsing vertices','system');
   const seq=extractSequence(data);
   if(seq && seq.length>0){
    const {frames,bbox}=normalizeAll(seq); playbackFrames=frames; playbackFrameIndex=0; is4DPlayMode=true;
    updatePointCloud(new Float32Array(frames[0].vertices), frames[0].colors.length?new Float32Array(frames[0].colors):null,bbox);
-   setProgress(100); document.getElementById('render-status').innerText='4D Playing • Sensor Input'; document.getElementById('bbox-info').innerText=`${frames.length} frames • ${frames[0].vertices.length/3} pts`;
-   appendChat(`✓ Sensor 4D loaded: ${frames.length} frames. Now producing 4D image.`,'system'); if(frames.length<150) saveToVault(`SENSOR_4D_${Date.now()}`,{sequence:frames}); return;
+   setProgress(100); document.getElementById('render-status').innerText='4D Playing • Map Stream'; document.getElementById('bbox-info').innerText=`${frames.length} frames • ${frames[0].vertices.length/3} pts`;
+   appendChat(`✓ Map sequence loaded: ${frames.length} frames.`,'system'); if(frames.length<150) saveToVault(`MAP_4D_${Date.now()}`,{sequence:frames}); return;
   }
-  const single=extractSingleFrame(data); if(!single){appendChat('Unrecognized format. Expected sensor {frames:[{geometryStream:{vertices:[...]}}]}','error'); setProgress(0); return;}
+  const single=extractSingleFrame(data); if(!single){appendChat('Unrecognized format payload.','error'); setProgress(0); return;}
   const {frames,bbox}=normalizeAll([single]); const f=frames[0]; updatePointCloud(new Float32Array(f.vertices), f.colors.length?new Float32Array(f.colors):null,bbox);
-  document.getElementById('node-counter').innerText=(f.vertices.length/3).toLocaleString(); setProgress(100); document.getElementById('render-status').innerText='4D Frame Mapped'; document.getElementById('bbox-info').innerText=`${bbox.sizeX.toFixed(1)} x ${bbox.sizeY.toFixed(1)} x ${bbox.sizeZ.toFixed(1)}`;
-  appendChat(`Mapped sensor frame ${f.vertices.length/3} nodes → ready for PNG/GIF/WebM`,'system');
+  document.getElementById('node-counter').innerText=(f.vertices.length/3).toLocaleString(); setProgress(100); document.getElementById('render-status').innerText='Frame Mapped'; document.getElementById('bbox-info').innerText=`${bbox.sizeX.toFixed(1)} x ${bbox.sizeY.toFixed(1)} x ${bbox.sizeZ.toFixed(1)}`;
+  appendChat(`Mapped frame nodes → ready for video export`,'system');
  }catch(e){appendChat('Failed: '+e.message,'error'); setProgress(0); console.error(e)}
 }
 function updatePointCloud(pos,col,bbox){
@@ -197,7 +195,7 @@ function updatePointCloud(pos,col,bbox){
 function setupDragDrop(){const dz=document.getElementById('drop-zone'); if(!dz)return; ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.add('dragover')})); ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.remove('dragover')})); dz.addEventListener('drop',e=>{const file=e.dataTransfer.files[0]; if(file) readFile(file)})}
 function readFile(file){const r=new FileReader(); r.onload=ev=>{try{processEnvironmentData(JSON.parse(ev.target.result))}catch(err){appendChat('Invalid JSON '+err.message,'error')}}; r.readAsText(file)}
 function handleFileUpload(e){const f=e.target.files[0]; if(f) readFile(f)} function handleCodePaste(){const t=document.getElementById('json-paste-box').value.trim(); if(!t)return; try{processEnvironmentData(JSON.parse(t))}catch(err){appendChat('Paste JSON invalid: '+err.message,'error')}}
-function saveToVault(name,payload){try{const raw=JSON.stringify(payload); if(raw.length>4500000){appendChat('Vault skip >4.5MB, export instead','error'); return;} const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); vault.unshift({id:Date.now(),name,size:raw.length,payload}); if(vault.length>12) vault.pop(); localStorage.setItem(VAULT_KEY,JSON.stringify(vault)); loadVaultList()}catch(e){appendChat('Vault err '+e.message,'error')}}
+function saveToVault(name,payload){try{const raw=JSON.stringify(payload); if(raw.length>4500000){appendChat('Vault skip >4.5MB','error'); return;} const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); vault.unshift({id:Date.now(),name,size:raw.length,payload}); if(vault.length>12) vault.pop(); localStorage.setItem(VAULT_KEY,JSON.stringify(vault)); loadVaultList()}catch(e){appendChat('Vault err '+e.message,'error')}}
 function loadVaultList(){try{const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); const list=document.getElementById('vault-list'); if(vault.length===0){list.innerHTML='<small style="color:#64748b">Empty</small>'; return;} list.innerHTML=''; vault.forEach(it=>{const d=document.createElement('div'); d.className='vault-item'; d.innerHTML=`<span>📦 ${it.name} <small style="color:#64748b">${(it.size/1024).toFixed(0)}KB</small></span><span><button onclick="loadFromVault(${it.id})" style="background:#0284c7;color:#fff;border:none;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:10px;margin-right:4px">Load</button><button onclick="deleteFromVault(${it.id})" style="background:#334155;color:#fff;border:none;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:10px">X</button></span>`; list.appendChild(d)})}catch(e){}}
 function loadFromVault(id){try{const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); const it=vault.find(v=>v.id===id); if(it) processEnvironmentData(it.payload)}catch(e){}} function deleteFromVault(id){let vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); vault=vault.filter(v=>v.id!==id); localStorage.setItem(VAULT_KEY,JSON.stringify(vault)); loadVaultList()}
 function initFaceMeshPipeline(){
@@ -206,11 +204,80 @@ function initFaceMeshPipeline(){
  faceMesh.onResults(r=>{if(!isFaceScanning)return; if(r.multiFaceLandmarks?.length>0){const lm=r.multiFaceLandmarks[0]; liveVertices=[]; liveColors=[]; for(const pt of lm){const x=(pt.x-0.5)*-3.0,y=(pt.y-0.5)*-3.0,z=(pt.z||0)*currentDepthScale; liveVertices.push(x,y,z); const sh=Math.min(Math.max((z+2)/4,0.1),1); liveColors.push(0.1+sh*0.4,0.65,1.0-sh*0.3);} recorded4DSequence.push({vertices:[...liveVertices],colors:[...liveColors]}); updatePointCloud(new Float32Array(liveVertices),new Float32Array(liveColors),{sizeX:3,sizeY:3,sizeZ:4}); document.getElementById('node-counter').innerText=(liveVertices.length/3).toString();}});
  navigator.mediaDevices?.getUserMedia({video:{width:640,height:480}}).then(s=>{if(preview)preview.srcObject=s; if(video){video.srcObject=s; if(typeof Camera!=='undefined'){cameraUtils=new Camera(video,{onFrame:async()=>{if(isFaceScanning) await faceMesh.send({image:video})},width:640,height:480}); cameraUtils.start();}}}).catch(()=>appendChat('Webcam denied','error'));
 }
-function toggleFaceScanning(){isFaceScanning=!isFaceScanning; const b=document.getElementById('scan-toggle-btn'); if(isFaceScanning){recorded4DSequence=[]; is4DPlayMode=false; b.innerText='STOP & PRODUCE'; b.classList.add('scanning'); appendChat('Recording...','system')} else{b.innerText='RECORD 4D STREAM'; b.classList.remove('scanning'); if(recorded4DSequence.length>0) processEnvironmentData({sequence:recorded4DSequence})}}
-function exportScannedMap(){if(liveVertices.length===0 && recorded4DSequence.length===0){alert('No data');return;} let payload; if(recorded4DSequence.length>0) payload={metadata:{generator:'Sensor Pipeline',version:'5.1',totalFrames:recorded4DSequence.length},sequence:recorded4DSequence,frames:recorded4DSequence.map((f,i)=>({frameIndex:i,geometryStream:{positions:f.vertices,colors:f.colors,vertices:f.vertices}}))}; else payload={vertices:liveVertices,colors:liveColors}; const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`sensor_4d_${Date.now()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); saveToVault(`Export_${Date.now()}`,payload)}
-function exportCurrentPNG(){if(!pointCloudObject){appendChat('No 4D image','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`4d_frame_${Date.now()}.png`; a.click(); appendChat('PNG 4D snapshot exported','system')}
-function export4DPhotoGIF(){if(!pointCloudObject){appendChat('No model','error');return;} appendChat('Producing orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`4d_orbit_${Date.now()}.gif`; a.click(); appendChat('GIF ready','system')}); gif.render()}} cap()}
-function export4DWebMVideo(){if(!pointCloudObject){appendChat('No model','error');return;} appendChat('Producing 4D video...','system'); recordedChunks=[]; const canvas=document.getElementById('three-canvas'); const stream=canvas.captureStream(30); try{mediaRecorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'})}catch(e){try{mediaRecorder=new MediaRecorder(stream,{mimeType:'video/webm'})}catch(err){appendChat('WebM not supported','error');return}} mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0) recordedChunks.push(e.data)}; mediaRecorder.onstop=()=>{const blob=new Blob(recordedChunks,{type:'video/webm'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`4d_${Date.now()}.webm`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000); appendChat('WebM 4D exported','system')}; mediaRecorder.start(); let fr=0; const total=90; const orig=camera.position.clone(); const rad=camera.position.distanceTo(controls.target); function rvf(){const ang=(fr/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); fr++; if(fr<total) requestAnimationFrame(rvf); else{camera.position.copy(orig); controls.update(); mediaRecorder.stop()}} rvf()}
+function toggleFaceScanning(){isFaceScanning=!isFaceScanning; const b=document.getElementById('scan-toggle-btn'); if(isFaceScanning){recorded4DSequence=[]; is4DPlayMode=false; b.innerText='STOP & PRODUCE'; b.classList.add('scanning'); appendChat('Recording 4D map stream...','system')} else{b.innerText='RECORD 4D STREAM'; b.classList.remove('scanning'); if(recorded4DSequence.length>0) processEnvironmentData({sequence:recorded4DSequence})}}
+function exportScannedMap(){if(liveVertices.length===0 && recorded4DSequence.length===0){alert('No data');return;} let payload; if(recorded4DSequence.length>0) payload={metadata:{generator:'Sensor Pipeline',version:'5.1',totalFrames:recorded4DSequence.length},sequence:recorded4DSequence,frames:recorded4DSequence.map((f,i)=>({frameIndex:i,geometryStream:{positions:f.vertices,colors:f.colors,vertices:f.vertices}}))}; else payload={vertices:liveVertices,colors:liveColors}; const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spatial_map_${Date.now()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); saveToVault(`Export_${Date.now()}`,payload)}
+function exportCurrentPNG(){if(!pointCloudObject){appendChat('No map rendered','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`spatial_frame_${Date.now()}.png`; a.click(); appendChat('PNG snapshot exported','system')}
+function export4DPhotoGIF(){if(!pointCloudObject){appendChat('No map model','error');return;} appendChat('Producing orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spatial_orbit_${Date.now()}.gif`; a.click(); appendChat('GIF ready','system')}); gif.render()}} cap()}
+
+// --- 4D WEBM VIDEO EXPORT PIPELINE ---
+function export4DWebMVideo(){
+    if(!renderer || !pointCloudObject){
+        appendChat('No active 4D map playback stream to record.', 'error');
+        return;
+    }
+
+    appendChat('Producing 4D WebM video stream...', 'system');
+    recordedChunks = [];
+    const canvas = document.getElementById('three-canvas');
+    
+    // Capture canvas stream at 30 FPS
+    const stream = canvas.captureStream(30); 
+    
+    try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+    } catch (e) {
+        try {
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        } catch (err) {
+            appendChat('MediaRecorder not supported by this browser.', 'error');
+            return;
+        }
+    }
+
+    mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+            recordedChunks.push(event.data);
+        }
+    };
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `spatial_4d_video_${Date.now()}.webm`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        appendChat('✓ 4D Video (.webm) exported successfully!', 'system');
+    };
+
+    mediaRecorder.start();
+    let frameCounter = 0;
+    const totalFrames = 90; // ~3 seconds orbit animation loop
+    const originalPos = camera.position.clone();
+    const radius = camera.position.distanceTo(controls.target);
+
+    function recordOrbitLoop(){
+        const angle = (frameCounter / totalFrames) * Math.PI * 2;
+        camera.position.x = Math.sin(angle) * radius;
+        camera.position.z = Math.cos(angle) * radius;
+        camera.lookAt(controls.target);
+        
+        renderer.render(scene, camera);
+        frameCounter++;
+
+        if(frameCounter < totalFrames){
+            requestAnimationFrame(recordOrbitLoop);
+        } else {
+            camera.position.copy(originalPos);
+            controls.update();
+            mediaRecorder.stop();
+        }
+    }
+
+    recordOrbitLoop();
+}
+
 function sendChatMessage(){const i=document.getElementById('chat-input'); const t=i.value.trim(); if(!t)return; appendChat(t); i.value='';}
 function handleKeyPress(e){if(e.key==='Enter') sendChatMessage()}
 </script>
