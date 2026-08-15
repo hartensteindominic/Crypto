@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial 3D Map Processor – Enterprise 4D Layer Edition (Enhanced Depth)</title>
+    <title>Spatial 3D Map Processor – Enterprise 4D Volumetric Depth & Rigging Edition</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -15,13 +15,13 @@
             overflow: hidden;
         }
         #sidebar {
-            width: 400px;
+            width: 420px;
             background: #0b0f19;
             border-right: 1px solid #1f2937;
             display: flex;
             flex-direction: column;
             padding: 20px;
-            gap: 16px;
+            gap: 14px;
             z-index: 10;
             overflow-y: auto;
         }
@@ -60,7 +60,7 @@
         }
         input[type="range"] { accent-color: #38bdf8; cursor: pointer; width: 120px; }
         #chat-container {
-            flex: 1; min-height: 100px; max-height: 140px; background: #1e293b; border-radius: 10px; padding: 10px;
+            flex: 1; min-height: 90px; max-height: 130px; background: #1e293b; border-radius: 10px; padding: 10px;
             display: flex; flex-direction: column; gap: 6px; overflow-y: auto; font-size: 11px;
         }
         .chat-message { padding: 6px 8px; border-radius: 6px; background: #334155; color: #e2e8f0; }
@@ -102,7 +102,7 @@
 <body>
 
 <div id="sidebar">
-    <div class="brand">SPATIAL 3D PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">Enterprise 4D Volumetric Depth Edition</span></div>
+    <div class="brand">SPATIAL 3D PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">Enterprise 4D Volumetric Depth & Rigging Edition</span></div>
     
     <div class="action-toggle-row">
         <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
@@ -132,10 +132,14 @@
     </div>
 
     <div class="section-card">
-        <div class="card-title">Layer Styling & Nodes</div>
+        <div class="card-title">Layer Styling & Volumetric Depth</div>
         <div class="layer-control-row">
             <span>Node Point Size</span>
             <input type="range" id="point-size-range" min="0.01" max="0.1" step="0.005" value="0.035" oninput="updatePointSize(this.value)">
+        </div>
+        <div class="layer-control-row">
+            <span>True Depth Scale (Z)</span>
+            <input type="range" id="depth-scale-range" min="1.0" max="25.0" step="0.5" value="12.0" oninput="updateDepthScale(this.value)">
         </div>
         <div class="layer-control-row">
             <span>Grid Plane</span>
@@ -158,7 +162,7 @@
     <div class="section-card" style="flex:1;">
         <div class="card-title">System Console</div>
         <div id="chat-container">
-            <div class="chat-message system">System initialized with enhanced volumetric depth engine.</div>
+            <div class="chat-message system">System initialized with enhanced volumetric depth mapping engine.</div>
         </div>
         <div class="chat-input-row" style="margin-top:4px;">
             <input type="text" id="chat-input" placeholder="Query layer parameters..." onkeypress="handleKeyPress(event)">
@@ -183,6 +187,7 @@
     let faceMesh = null, cameraUtils = null;
     let isFaceScanning = false;
     let liveVertices = [], liveColors = [];
+    let currentDepthScale = 12.0;
     
     let is4DPlayMode = false;
     let playbackFrames = [];
@@ -299,6 +304,10 @@
         if (pointCloudObject) pointCloudObject.material.size = parseFloat(val);
     }
 
+    function updateDepthScale(val) {
+        currentDepthScale = parseFloat(val);
+    }
+
     function toggleGrid(visible) {
         if (gridHelper) gridHelper.visible = visible;
     }
@@ -401,7 +410,7 @@
             sizeAttenuation: true,
             transparent: true,
             opacity: 0.95,
-            depthWrite: true,       // Enabled for true 3D visual hierarchy occlusion
+            depthWrite: true,       // True 3D visual hierarchy occlusion enabled
             depthTest: true
         });
 
@@ -448,7 +457,7 @@
         if (typeof FaceMesh === 'undefined') return;
 
         faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-        // Enable refineLandmarks for higher-density mesh geometry and iris tracking
+        // Enable refineLandmarks for full mesh high-density extraction & iris contours
         faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
 
         faceMesh.onResults((results) => {
@@ -458,13 +467,16 @@
                 liveVertices = []; liveColors = [];
                 
                 for (const pt of landmarks) {
-                    // Amplify Z-depth multiplier to create rich 3D volumetric depth layers
+                    // Extract full true volumetric depth mapping utilizing slider parameter
                     const x = (pt.x - 0.5) * -3.0;
                     const y = (pt.y - 0.5) * -3.0;
-                    const z = (pt.z || 0) * 10.0; 
+                    const z = (pt.z || 0) * currentDepthScale; 
 
                     liveVertices.push(x, y, z);
-                    liveColors.push(Math.abs(x)*0.4 + 0.2, 0.6, 1.0 - Math.abs(z)*0.2);
+                    
+                    // Dynamic coloring shifting based on structural depth layout
+                    let depthShade = Math.min(Math.max((z + 2.0) / 4.0, 0.1), 1.0);
+                    liveColors.push(0.1 + depthShade * 0.4, 0.65, 1.0 - (depthShade * 0.3));
                 }
                 
                 if (recorded4DSequence) {
@@ -517,12 +529,12 @@
         let payload;
         if (recorded4DSequence.length > 0) {
             payload = {
-                metadata: { generator: 'Spatial 4D Depth Sequence Processor', version: '4.1', totalFrames: recorded4DSequence.length },
+                metadata: { generator: 'Spatial 4D Depth Sequence Processor', version: '4.2', totalFrames: recorded4DSequence.length },
                 sequence: recorded4DSequence
             };
         } else {
             payload = {
-                metadata: { generator: 'Spatial Layer Processor', version: '3.1' },
+                metadata: { generator: 'Spatial Layer Processor', version: '3.2' },
                 data: { attributes: { position: { itemSize: 3, array: liveVertices }, color: { itemSize: 3, array: liveColors } } }
             };
         }
