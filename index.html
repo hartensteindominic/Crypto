@@ -3,126 +3,260 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EtherFlow | Ethereum Faucet</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.15.0/ethers.umd.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Spatial 3D Environment Viewer</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 350px;
+            background: #111827;
+            border-right: 1px solid #1f2937;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            gap: 20px;
+            z-index: 10;
+        }
+        .brand { font-size: 16px; font-weight: 800; letter-spacing: 1px; color: #60a5fa; }
+        .upload-section {
+            border: 2px dashed #374151;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.02);
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .upload-section:hover { border-color: #60a5fa; }
+        input[type="file"] { display: none; }
+        .upload-label { font-size: 13px; color: #9ca3af; cursor: pointer; display: block; }
+        
+        #chat-container {
+            flex: 1;
+            background: #1f2937;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 250px;
+            font-size: 13px;
+        }
+        .chat-message {
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #374151;
+            color: #d1d5db;
+        }
+        .chat-message.system { background: #1e3a8a; color: #93c5fd; }
+
+        .chat-input-row { display: flex; gap: 8px; }
+        input[type="text"] {
+            flex: 1;
+            background: #1f2937;
+            border: 1px solid #374151;
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button:hover { background: #1d4ed8; }
+
+        #viewer-container {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        .stats-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 12px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .stats-overlay span { color: #60a5fa; font-weight: bold; }
+    </style>
+    <!-- Include Three.js for 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
-<body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col items-center justify-center p-4">
-    
-    <nav class="w-full max-w-4xl flex justify-between items-center mb-12">
-        <h1 class="text-2xl font-bold text-blue-500 font-mono">EtherFlow</h1>
-        <button id="connectBtn" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full transition-all font-semibold">
-            Connect Wallet
-        </button>
-    </nav>
+<body>
 
-    <main class="w-full max-w-2xl bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
-        <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold mb-2">Claim Free ETH</h2>
-            <p id="statusMsg" class="text-gray-400 text-sm">Please connect in the MetaMask App browser.</p>
+    <div id="sidebar">
+        <div class="brand">SPATIAL 3D VIEWER</div>
+        
+        <div class="upload-section" onclick="document.getElementById('file-input').click()">
+            <span class="upload-label">📂 Drop JSON Map or Click to Upload</span>
+            <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(event)">
         </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-8">
-            <div class="bg-gray-700 p-4 rounded-2xl">
-                <p class="text-xs text-gray-400 uppercase font-bold text-center">Your Balance</p>
-                <p id="userBalance" class="text-xl font-mono text-blue-400 text-center">0.0000 ETH</p>
-            </div>
-            <div class="bg-gray-700 p-4 rounded-2xl">
-                <p class="text-xs text-gray-400 uppercase font-bold text-center">Faucet Pool</p>
-                <p class="text-xl font-mono text-green-400 text-center">1.2500 ETH</p>
-            </div>
+        <div class="stats-overlay" style="position: static; background: transparent; border: none; padding: 0;">
+            Nodes Loaded: <span id="node-counter">0</span>
         </div>
 
-        <div class="bg-blue-900/20 border border-blue-500/30 p-6 rounded-2xl">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h3 class="font-bold text-lg">Daily Bonus</h3>
-                    <p class="text-sm text-blue-300">0.001 ETH Reward</p>
-                </div>
-                <button id="claimBtn" disabled class="bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-400 px-8 py-3 rounded-xl font-bold transition-all">
-                    Claim
-                </button>
-            </div>
+        <div id="chat-container">
+            <div class="chat-message system">System ready. Upload your Spatial Dash JSON file to render the environment.</div>
         </div>
-    </main>
 
-    <div id="debugLog" class="mt-8 text-[10px] text-gray-500 font-mono w-full max-w-2xl bg-black/40 p-3 rounded-lg overflow-auto max-h-32 border border-gray-800">
-        System initialized. Waiting for wallet...
+        <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Ask AI about the map..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+
+    <div id="viewer-container">
+        <div class="stats-overlay">
+            Status: <span id="render-status">Awaiting Dataset</span>
+        </div>
+        <canvas id="three-canvas"></canvas>
     </div>
 
     <script>
-        function log(msg, isError) {
-            const el = document.getElementById('debugLog');
-            const color = isError? "text-red-500" : "text-gray-400";
-            el.innerHTML += '<br/><span class="' + color + '">> ' + msg + '</span>';
-            el.scrollTop = el.scrollHeight;
-        }
+        let scene, camera, renderer, controls;
+        let pointsGroup;
 
-        window.onerror = function(msg, url, line) {
-            log("CRASH: " + msg + " (Line " + line + ")", true);
-            return false;
-        };
-
-        let provider, userAddress;
-
-        async function connect() {
-            log("Attempting to connect...");
+        function init3D() {
+            const container = document.getElementById('viewer-container');
             
-            if (typeof window.ethereum === 'undefined') {
-                log("Error: window.ethereum not found.", true);
-                alert("Please open this page inside the browser built into the MetaMask App.");
-                return;
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.setFocalLength && camera.setFocalLength(50);
+            camera.position.set(0, 2, 5);
+
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Ambient lighting & grid helper
+            scene.add(new THREE.GridHelper(20, 20, 0x374151, 0x1f2937));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+            pointsGroup = new THREE.Group();
+            scene.add(pointsGroup);
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('viewer-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    processEnvironmentData(data);
+                } catch (err) {
+                    appendChat("Error parsing JSON structure.", "system");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function processEnvironmentData(data) {
+            const nodes = data.coordinatesMatrix || [];
+            document.getElementById('node-counter').innerText = nodes.length;
+            document.getElementById('render-status').innerText = "Rendered Active";
+
+            // Clear old nodes
+            while(pointsGroup.children.length > 0){ 
+                pointsGroup.remove(pointsGroup.children[0]); 
             }
 
-            try {
-                // EIP-1102 Standard: request accounts
-                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            // Geometry setup for point cloud visualization
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            
+            nodes.forEach(node => {
+                positions.push(parseFloat(node.x), parseFloat(node.y), parseFloat(node.z));
                 
-                if (accounts && accounts.length > 0) {
-                    // FIX: Ensure we treat the address as a string
-                    userAddress = String(accounts); 
-                    log("Connected: " + userAddress.substring(0, 10) + "...");
-                    
-                    // Initialize Ethers v6 Provider
-                    provider = new ethers.BrowserProvider(window.ethereum);
-                    
-                    await updateUI();
-                }
-            } catch (err) {
-                log("Connection Failed: " + err.message, true);
-            }
-        }
-
-        async function updateUI() {
-            if (!userAddress ||!provider) return;
-            try {
-                log("Fetching balance for " + userAddress.substring(0, 8) + "...");
-                const balance = await provider.getBalance(userAddress);
-                const ethBalance = ethers.formatEther(balance);
-
-                document.getElementById('userBalance').innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
-                document.getElementById('connectBtn').innerText = "Connected";
-                document.getElementById('connectBtn').style.backgroundColor = "#059669";
-                document.getElementById('statusMsg').innerText = "Wallet Ready.";
-                document.getElementById('claimBtn').disabled = false;
-                log("Dashboard updated successfully.");
-            } catch (e) {
-                log("UI Update Error: " + e.message, true);
-            }
-        }
-
-        document.getElementById('connectBtn').onclick = connect;
-
-        if (window.ethereum) {
-            window.ethereum.on('accountsChanged', function(accounts) {
-                if (accounts.length > 0) {
-                    userAddress = String(accounts);
-                    updateUI();
-                } else {
-                    window.location.reload();
-                }
+                // Add tiny markers for detailed inspection
+                const sphereGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+                const material = new THREE.MeshBasicMaterial({ color: 0x3b82f6 });
+                const sphere = new THREE.Mesh(sphereGeometry, material);
+                sphere.position.set(parseFloat(node.x), parseFloat(node.y), parseFloat(node.z));
+                pointsGroup.add(sphere);
             });
+
+            appendChat(`Successfully loaded ${nodes.length} spatial nodes generated by ${data.generator || 'Unknown'}.`, "system");
         }
+
+        function appendChat(text, sender = "") {
+            const chatContainer = document.getElementById('chat-container');
+            const msg = document.createElement('div');
+            msg.className = `chat-message ${sender}`;
+            msg.innerText = text;
+            chatContainer.appendChild(msg);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            appendChat(text);
+            input.value = "";
+
+            // Simulated interactive assistant response parsing metrics
+            setTimeout(() => {
+                const count = document.getElementById('node-counter').innerText;
+                if (count === "0") {
+                    appendChat("Please upload a spatial environment JSON file first so I can analyze the metrics.", "system");
+                } else {
+                    appendChat(`Analysis complete: Your dataset contains ${count} spatial points mapped successfully in 3D space.`, "system");
+                }
+            }, 600);
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendChatMessage();
+        }
+
+        window.onload = init3D;
     </script>
 </body>
 </html>
