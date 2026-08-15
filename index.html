@@ -15,19 +15,36 @@
             overflow: hidden;
         }
         #sidebar {
-            width: 350px;
+            width: 380px;
             background: #111827;
             border-right: 1px solid #1f2937;
             display: flex;
             flex-direction: column;
             padding: 24px;
-            gap: 20px;
+            gap: 16px;
             z-index: 10;
         }
         .brand { font-size: 16px; font-weight: 800; letter-spacing: 1px; color: #60a5fa; }
+        
+        .action-toggle-row { display: flex; gap: 8px; }
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            color: #9ca3af;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+
+        .input-panel { display: flex; flex-direction: column; gap: 10px; }
         .upload-section {
             border: 2px dashed #374151;
-            padding: 20px;
+            padding: 16px;
             border-radius: 12px;
             text-align: center;
             background: rgba(255, 255, 255, 0.02);
@@ -36,8 +53,23 @@
         }
         .upload-section:hover { border-color: #60a5fa; }
         input[type="file"] { display: none; }
-        .upload-label { font-size: 13px; color: #9ca3af; cursor: pointer; display: block; }
-        
+        .upload-label { font-size: 12px; color: #9ca3af; cursor: pointer; display: block; }
+
+        .paste-section { display: none; flex-direction: column; gap: 8px; }
+        textarea {
+            width: 100%;
+            height: 110px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            padding: 10px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-family: monospace;
+            font-size: 11px;
+            resize: none;
+        }
+        textarea:focus { outline: none; border-color: #60a5fa; }
+
         #chat-container {
             flex: 1;
             background: #1f2937;
@@ -47,7 +79,7 @@
             flex-direction: column;
             gap: 10px;
             overflow-y: auto;
-            max-height: 250px;
+            max-height: 200px;
             font-size: 13px;
         }
         .chat-message {
@@ -68,7 +100,7 @@
             color: white;
             font-size: 13px;
         }
-        button {
+        button.primary-btn {
             background: #2563eb;
             color: white;
             border: none;
@@ -78,7 +110,7 @@
             cursor: pointer;
             font-size: 13px;
         }
-        button:hover { background: #1d4ed8; }
+        button.primary-btn:hover { background: #1d4ed8; }
 
         #viewer-container {
             flex: 1;
@@ -109,9 +141,21 @@
     <div id="sidebar">
         <div class="brand">SPATIAL 3D VIEWER</div>
         
-        <div class="upload-section" onclick="document.getElementById('file-input').click()">
-            <span class="upload-label">📂 Drop JSON Map or Click to Upload</span>
-            <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(event)">
+        <div class="action-toggle-row">
+            <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload File</button>
+            <button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste JSON Code</button>
+        </div>
+
+        <div id="panel-file" class="input-panel">
+            <div class="upload-section" onclick="document.getElementById('file-input').click()">
+                <span class="upload-label">Drop JSON Map or Click to Upload</span>
+                <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(event)">
+            </div>
+        </div>
+
+        <div id="panel-paste" class="input-panel" style="display: none;">
+            <textarea id="json-paste-box" placeholder="Paste your BufferGeometry JSON payload here..."></textarea>
+            <button class="primary-btn" onclick="handleCodePaste()">Load Pasted Code</button>
         </div>
 
         <div class="stats-overlay" style="position: static; background: transparent; border: none; padding: 0;">
@@ -119,12 +163,12 @@
         </div>
 
         <div id="chat-container">
-            <div class="chat-message system">System ready. Upload your Spatial Dash BufferGeometry JSON file to construct the 3D environment.</div>
+            <div class="chat-message system">System ready. Upload or paste your Spatial Dash JSON map data to construct the 3D environment.</div>
         </div>
 
         <div class="chat-input-row">
             <input type="text" id="chat-input" placeholder="Ask AI about the map..." onkeypress="handleKeyPress(event)">
-            <button onclick="sendChatMessage()">Send</button>
+            <button class="primary-btn" onclick="sendChatMessage()">Send</button>
         </div>
     </div>
 
@@ -154,7 +198,6 @@
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
 
-            // Ambient lighting & grid helper
             scene.add(new THREE.GridHelper(20, 20, 0x374151, 0x1f2937));
             scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
@@ -178,6 +221,25 @@
             renderer.setSize(container.clientWidth, container.clientHeight);
         }
 
+        function switchInputMode(mode) {
+            const fileBtn = document.getElementById('btn-tab-file');
+            const pasteBtn = document.getElementById('btn-tab-paste');
+            const filePanel = document.getElementById('panel-file');
+            const pastePanel = document.getElementById('panel-paste');
+
+            if (mode === 'file') {
+                fileBtn.classList.add('active');
+                pasteBtn.classList.remove('active');
+                filePanel.style.display = 'flex';
+                pastePanel.style.display = 'none';
+            } else {
+                pasteBtn.classList.add('active');
+                fileBtn.classList.remove('active');
+                pastePanel.style.display = 'flex';
+                filePanel.style.display = 'none';
+            }
+        }
+
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -188,16 +250,30 @@
                     const data = JSON.parse(e.target.result);
                     processEnvironmentData(data);
                 } catch (err) {
-                    appendChat("Error parsing JSON structure.", "system");
+                    appendChat("Error parsing JSON file structure.", "system");
                 }
             };
             reader.readAsText(file);
         }
 
+        function handleCodePaste() {
+            const rawText = document.getElementById('json-paste-box').value.trim();
+            if (!rawText) {
+                appendChat("Paste area is empty. Please paste valid JSON text.", "system");
+                return;
+            }
+
+            try {
+                const data = JSON.parse(rawText);
+                processEnvironmentData(data);
+            } catch (err) {
+                appendChat("Invalid JSON format. Please verify your pasted code structure.", "system");
+            }
+        }
+
         function processEnvironmentData(data) {
             let positions = [];
 
-            // Compatibility check for BufferGeometry structure (metadata/data/attributes/position/array)
             if (data.data && data.data.attributes && data.data.attributes.position && data.data.attributes.position.array) {
                 positions = data.data.attributes.position.array;
             } else if (data.coordinatesMatrix) {
@@ -215,12 +291,10 @@
             document.getElementById('node-counter').innerText = totalNodes;
             document.getElementById('render-status').innerText = "Rendered Active";
 
-            // Clear previous render nodes
             while(pointsGroup.children.length > 0){ 
                 pointsGroup.remove(pointsGroup.children[0]); 
             }
 
-            // Loop through flat array [x, y, z, x, y, z...] and place 3D point spheres
             for (let i = 0; i < positions.length; i += 3) {
                 let x = positions[i];
                 let y = positions[i + 1];
@@ -257,7 +331,7 @@
             setTimeout(() => {
                 const count = document.getElementById('node-counter').innerText;
                 if (count === "0") {
-                    appendChat("Please upload your BufferGeometry JSON environment file first.", "system");
+                    appendChat("Please load your spatial environment file or paste code first.", "system");
                 } else {
                     appendChat(`Analysis complete: Displaying ${count} mapped points in the 3D WebGL space viewport.`, "system");
                 }
