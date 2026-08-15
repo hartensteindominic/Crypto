@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spatial Mapping Processor • 5D WebM Pipeline</title>
+<title>Spatial Mapping Processor • Realistic 5D Face Mesh Pipeline</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#030712;color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;height:100vh;display:flex;overflow:hidden}
@@ -40,7 +40,7 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 </head>
 <body>
 <div id="sidebar">
-<div class="brand">SPATIAL MAPPING PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">5D HYPER-MAPPING • WEBM PIPELINE</span></div>
+<div class="brand">SPATIAL MAPPING PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">REALISTIC 5D MESH PIPELINE</span></div>
 <div class="action-toggle-row">
 <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
 <button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste Data</button>
@@ -65,8 +65,15 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 <button class="primary-btn" onclick="exportScannedMap()" style="background:#059669;">Export 5D Map + Vault</button>
 </div>
 <div class="section-card">
-<div class="card-title">Volumetric & 5D Hyperspace Tuning</div>
-<div class="layer-control-row"><span>Point Size</span><input type="range" id="point-size-range" min="0.01" max="0.15" step="0.005" value="0.04" oninput="updatePointSize(this.value)"></div>
+<div class="card-title">Volumetric & Realism Tuning</div>
+<div class="layer-control-row"><span>Render Mode</span>
+  <select id="render-mode-select" onchange="updateRenderMode(this.value)" style="background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:3px;font-size:11px;">
+    <option value="points">Glowing Points</option>
+    <option value="solid" selected>Solid Realistic Face</option>
+    <option value="wireframe">Wireframe Mesh</option>
+  </select>
+</div>
+<div class="layer-control-row"><span>Point/Node Size</span><input type="range" id="point-size-range" min="0.01" max="0.15" step="0.005" value="0.04" oninput="updatePointSize(this.value)"></div>
 <div class="layer-control-row"><span>Hyper-Axis W Slice</span><input type="range" id="w-slice-range" min="-2" max="2" step="0.05" value="0" oninput="updateWSlice(this.value)"><span id="w-slice-val">0.00</span></div>
 <div class="layer-control-row"><span>Time-Axis T Slice</span><input type="range" id="t-slice-range" min="-2" max="2" step="0.05" value="0" oninput="updateTSlice(this.value)"><span id="t-slice-val">0.00</span></div>
 <div class="layer-control-row"><span>Depth Scale Z</span><input type="range" id="depth-scale-range" min="1" max="25" step="0.5" value="12" oninput="updateDepthScale(this.value)"></div>
@@ -88,7 +95,7 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 </div>
 <div class="section-card" style="flex:1">
 <div class="card-title">Console</div>
-<div id="chat-container"><div class="chat-message system">5D spatial processing pipeline ready.</div></div>
+<div id="chat-container"><div class="chat-message system">Realistic 5D facial mapping pipeline ready.</div></div>
 <div style="display:flex;gap:6px;margin-top:4px"><input type="text" id="chat-input" placeholder="Query..." onkeypress="handleKeyPress(event)"><button class="primary-btn" onclick="sendChatMessage()">Send</button></div>
 </div>
 </div>
@@ -99,31 +106,35 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 <canvas id="three-canvas"></canvas>
 </div>
 <script>
-let scene,camera,renderer,controls,gridHelper,pointCloudObject=null,faceMesh=null,cameraUtils=null;
+let scene,camera,renderer,controls,gridHelper,spatialObject=null,faceMesh=null,cameraUtils=null;
 let isFaceScanning=false,liveVertices=[],liveColors=[],currentDepthScale=12,currentFPS=18,lastFrameTime=0;
 let is4DPlayMode=false,playbackFrames=[],playbackFrameIndex=0,recorded4DSequence=[],mediaRecorder,recordedChunks=[];
 let raw5DSourceFrames=[];
-let currentWFilter = 0, currentTFilter = 0;
-const VAULT_KEY='spatial_5d_vault_v1';
+let currentWFilter = 0, currentTFilter = 0, currentRenderMode = 'solid';
+const VAULT_KEY='spatial_5d_realistic_v1';
 
 window.addEventListener('DOMContentLoaded',()=>{init3D();setupDragDrop();loadVaultList()});
 
 function init3D(){
 const c=document.getElementById('viewer-container'); scene=new THREE.Scene();
-camera=new THREE.PerspectiveCamera(55,c.clientWidth/c.clientHeight,0.05,2000); camera.position.set(0,0.8,4.5);
+camera=new THREE.PerspectiveCamera(55,c.clientWidth/c.clientHeight,0.05,2000); camera.position.set(0,0.2,3.2);
 const canvas=document.getElementById('three-canvas');
 renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,preserveDrawingBuffer:true});
 renderer.setSize(c.clientWidth,c.clientHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2)); renderer.setClearColor(0x030712);
 controls=new THREE.OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.dampingFactor=0.08;
 gridHelper=new THREE.GridHelper(30,30,0x1e293b,0x0f172a); gridHelper.position.y=-1.5; scene.add(gridHelper);
-scene.add(new THREE.AmbientLight(0xffffff,0.9)); const d1=new THREE.DirectionalLight(0x38bdf8,0.5); d1.position.set(5,10,7); scene.add(d1);
-const d2=new THREE.DirectionalLight(0xffffff,0.3); d2.position.set(-5,-5,-5); scene.add(d2);
+
+// Enhanced Lighting for Realistic Shading
+scene.add(new THREE.AmbientLight(0xffffff,0.7)); 
+const d1=new THREE.DirectionalLight(0xffffff,1.0); d1.position.set(2,4,5); scene.add(d1);
+const d2=new THREE.DirectionalLight(0x38bdf8,0.5); d2.position.set(-5,-2,-3); scene.add(d2);
+
 window.addEventListener('resize',onWindowResize); initFaceMeshPipeline(); animate();
 }
 
 function animate(now){
 requestAnimationFrame(animate); if(controls)controls.update();
-if(is4DPlayMode && playbackFrames.length>0 && pointCloudObject && now-lastFrameTime > (1000/currentFPS)){
+if(is4DPlayMode && playbackFrames.length>0 && spatialObject && now-lastFrameTime > (1000/currentFPS)){
 apply5DSlicingAndRender(playbackFrameIndex);
 playbackFrameIndex=(playbackFrameIndex+1)%playbackFrames.length; lastFrameTime=now;
 }
@@ -134,11 +145,12 @@ function onWindowResize(){const c=document.getElementById('viewer-container'); i
 function switchInputMode(m){['file','paste','scan'].forEach(x=>{document.getElementById('btn-tab-'+x)?.classList.remove('active'); document.getElementById('panel-'+x).style.display='none'}); document.getElementById('btn-tab-'+m)?.classList.add('active'); document.getElementById('panel-'+m).style.display='flex'}
 function setProgress(p){document.getElementById('progress-fill').style.width=Math.min(100,Math.max(0,p))+'%'}
 function appendChat(t,s=''){const b=document.getElementById('chat-container'); const d=document.createElement('div'); d.className='chat-message '+s; d.innerText=t; b.appendChild(d); b.scrollTop=b.scrollHeight}
-function clearScene(){is4DPlayMode=false; playbackFrames=[]; playbackFrameIndex=0; raw5DSourceFrames=[]; if(pointCloudObject){scene.remove(pointCloudObject); pointCloudObject.geometry.dispose(); pointCloudObject.material.dispose(); pointCloudObject=null} document.getElementById('node-counter').innerText='0'; document.getElementById('render-status').innerText='Cleared'; document.getElementById('bbox-info').innerText=''; setProgress(0)}
-function updatePointSize(v){if(pointCloudObject)pointCloudObject.material.size=parseFloat(v)} 
+function clearScene(){is4DPlayMode=false; playbackFrames=[]; playbackFrameIndex=0; raw5DSourceFrames=[]; if(spatialObject){scene.remove(spatialObject); spatialObject.geometry.dispose(); spatialObject.material.dispose(); spatialObject=null} document.getElementById('node-counter').innerText='0'; document.getElementById('render-status').innerText='Cleared'; document.getElementById('bbox-info').innerText=''; setProgress(0)}
+function updatePointSize(v){if(spatialObject && currentRenderMode==='points')spatialObject.material.size=parseFloat(v)} 
 function updateDepthScale(v){currentDepthScale=parseFloat(v)} 
 function updateFPS(v){currentFPS=parseInt(v); document.getElementById('fps-label').innerText=v} 
 function toggleGrid(v){if(gridHelper)gridHelper.visible=v}
+function updateRenderMode(m){currentRenderMode = m; if(raw5DSourceFrames.length > 0) apply5DSlicingAndRender(playbackFrameIndex);}
 
 function updateWSlice(v){
   currentWFilter = parseFloat(v);
@@ -171,6 +183,22 @@ function extract5DSequence(data){
  }).filter(f=>f.vertices5D.length > 0);
 }
 
+// Generates an approximate triangulated face grid index for realistic solid mesh rendering from landmark points
+function getFaceIndices(count){
+  const indices = [];
+  // Standard MediaPipe FaceMesh mesh topology simplified or grid-stitched for smooth surface filling
+  const side = Math.round(Math.sqrt(count));
+  if(side > 5){
+    for (let i = 0; i < count - side - 1; i++) {
+      if ((i + 1) % side !== 0) {
+        indices.push(i, i + 1, i + side);
+        indices.push(i + 1, i + side + 1, i + side);
+      }
+    }
+  }
+  return indices;
+}
+
 function apply5DSlicingAndRender(frameIdx){
   if(!raw5DSourceFrames || raw5DSourceFrames.length === 0) return;
   const targetFrame = raw5DSourceFrames[frameIdx % raw5DSourceFrames.length];
@@ -196,27 +224,53 @@ function apply5DSlicingAndRender(frameIdx){
     filteredPositions.push(x, y, z);
     if(cols.length >= (i/tupleSize)*3 + 3){
       filteredColors.push(cols[(i/tupleSize)*3], cols[(i/tupleSize)*3+1], cols[(i/tupleSize)*3+2]);
+    } else {
+      // Default natural warm skin tone shading fallback
+      filteredColors.push(0.85, 0.68, 0.55);
     }
   }
   
   const posArr = new Float32Array(filteredPositions);
-  const colArr = filteredColors.length === filteredPositions.length ? new Float32Array(filteredColors) : null;
+  const colArr = new Float32Array(filteredColors);
   
-  if(!pointCloudObject){
-    updatePointCloud(posArr, colArr, {sizeX:3, sizeY:3, sizeZ:3});
+  if(spatialObject){scene.remove(spatialObject); spatialObject.geometry.dispose(); spatialObject.material.dispose();}
+  
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+  
+  if(currentRenderMode === 'solid' || currentRenderMode === 'wireframe'){
+    const indices = getFaceIndices(filteredPositions.length / 3);
+    if(indices.length > 0) g.setIndex(indices);
+    g.computeVertexNormals();
+    
+    const mat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.45,
+      metalness: 0.1,
+      wireframe: currentRenderMode === 'wireframe',
+      side: THREE.DoubleSide
+    });
+    spatialObject = new THREE.Mesh(g, mat);
   } else {
-    const posAttr = pointCloudObject.geometry.getAttribute('position');
-    const colAttr = pointCloudObject.geometry.getAttribute('color');
-    pointCloudObject.geometry.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-    if(colArr) pointCloudObject.geometry.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
-    pointCloudObject.geometry.attributes.position.needsUpdate = true;
+    const mat = new THREE.PointsMaterial({
+      size: parseFloat(document.getElementById('point-size-range').value),
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95
+    });
+    spatialObject = new THREE.Points(g, mat);
   }
+  
+  spatialObject.rotation.y = Math.PI; 
+  scene.add(spatialObject);
   document.getElementById('node-counter').innerText = (filteredPositions.length/3).toLocaleString();
 }
 
 function processEnvironmentData(data){
  try{
-  setProgress(10); appendChat('Ingesting 5D spatial payload...','system');
+  setProgress(10); appendChat('Ingesting realistic 5D facial map payload...','system');
   const seq = extract5DSequence(data);
   if(seq && seq.length > 0){
    raw5DSourceFrames = seq;
@@ -226,23 +280,14 @@ function processEnvironmentData(data){
    
    apply5DSlicingAndRender(0);
    setProgress(100); 
-   document.getElementById('render-status').innerText='5D Active Playback • Hyperspace Stream'; 
-   document.getElementById('bbox-info').innerText=`${seq.length} frames • 5D Multi-Axis`;
-   appendChat(`✓ 5D sequence loaded successfully: ${seq.length} frames.`,'system'); 
-   if(seq.length < 150) saveToVault(`MAP_5D_${Date.now()}`,{sequence:seq}); 
+   document.getElementById('render-status').innerText='Realistic 5D Solid Active'; 
+   document.getElementById('bbox-info').innerText=`${seq.length} frames • Textured Mesh`;
+   appendChat(`✓ 5D realistic face mesh loaded: ${seq.length} frames.`,'system'); 
+   if(seq.length < 150) saveToVault(`FACE_5D_${Date.now()}`,{sequence:seq}); 
    return;
   }
-  appendChat('Unrecognized 5D payload format.','error'); setProgress(0);
- }catch(e){appendChat('Failed parsing 5D: '+e.message,'error'); setProgress(0); console.error(e)}
-}
-
-function updatePointCloud(pos,col,bbox){
- if(pointCloudObject){scene.remove(pointCloudObject); pointCloudObject.geometry.dispose(); pointCloudObject.material.dispose();}
- const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
- const m=new THREE.PointsMaterial({size:parseFloat(document.getElementById('point-size-range').value),sizeAttenuation:true,transparent:true,opacity:0.95,depthWrite:false});
- if(col && col.length===pos.length){g.setAttribute('color',new THREE.BufferAttribute(col,3)); m.vertexColors=true;} else m.color=new THREE.Color(0x38bdf8);
- pointCloudObject=new THREE.Points(g,m); pointCloudObject.rotation.y=Math.PI; scene.add(pointCloudObject);
- if(bbox){const ms=Math.max(bbox.sizeX,bbox.sizeY,bbox.sizeZ); camera.position.set(0,ms*0.4,ms*1.6); controls.target.set(0,0,0); controls.update();}
+  appendChat('Unrecognized payload format.','error'); setProgress(0);
+ }catch(e){appendChat('Failed parsing: '+e.message,'error'); setProgress(0); console.error(e)}
 }
 
 function setupDragDrop(){const dz=document.getElementById('drop-zone'); if(!dz)return; ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.add('dragover')})); ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault(); dz.classList.remove('dragover')})); dz.addEventListener('drop',e=>{const file=e.dataTransfer.files[0]; if(file) readFile(file)})}
@@ -258,22 +303,22 @@ function deleteFromVault(id){let vault=JSON.parse(localStorage.getItem(VAULT_KEY
 function initFaceMeshPipeline(){
  const video=document.getElementById('webcam-video'); const preview=document.getElementById('webcam-preview'); if(typeof FaceMesh==='undefined')return;
  faceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`}); faceMesh.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.6,minTrackingConfidence:0.6});
- faceMesh.onResults(r=>{if(!isFaceScanning)return; if(r.multiFaceLandmarks?.length>0){const lm=r.multiFaceLandmarks[0]; liveVertices=[]; liveColors=[]; for(const pt of lm){const x=(pt.x-0.5)*-3.0,y=(pt.y-0.5)*-3.0,z=(pt.z||0)*currentDepthScale, t=currentTFilter, w=currentWFilter; liveVertices.push(x,y,z,t,w); const sh=Math.min(Math.max((z+2)/4,0.1),1); liveColors.push(0.1+sh*0.4,0.65,1.0-sh*0.3);} recorded4DSequence.push({vertices:[...liveVertices],colors:[...liveColors]}); processEnvironmentData({sequence:recorded4DSequence});}});
+ faceMesh.onResults(r=>{if(!isFaceScanning)return; if(r.multiFaceLandmarks?.length>0){const lm=r.multiFaceLandmarks[0]; liveVertices=[]; liveColors=[]; for(const pt of lm){const x=(pt.x-0.5)*-3.0,y=(pt.y-0.5)*-3.0,z=(pt.z||0)*currentDepthScale, t=currentTFilter, w=currentWFilter; liveVertices.push(x,y,z,t,w); liveColors.push(0.82, 0.65, 0.52);} recorded4DSequence.push({vertices:[...liveVertices],colors:[...liveColors]}); processEnvironmentData({sequence:recorded4DSequence});}});
  navigator.mediaDevices?.getUserMedia({video:{width:640,height:480}}).then(s=>{if(preview)preview.srcObject=s; if(video){video.srcObject=s; if(typeof Camera!=='undefined'){cameraUtils=new Camera(video,{onFrame:async()=>{if(isFaceScanning) await faceMesh.send({image:video})},width:640,height:480}); cameraUtils.start();}}}).catch(()=>appendChat('Webcam denied','error'));
 }
 
-function toggleFaceScanning(){isFaceScanning=!isFaceScanning; const b=document.getElementById('scan-toggle-btn'); if(isFaceScanning){recorded4DSequence=[]; is4DPlayMode=false; b.innerText='STOP & PRODUCE'; b.classList.add('scanning'); appendChat('Recording 5D hyperspace stream...','system')} else{b.innerText='RECORD 5D STREAM'; b.classList.remove('scanning');}}
-function exportScannedMap(){if(recorded4DSequence.length===0){alert('No data');return;} const payload={metadata:{generator:'5D Sensor Pipeline',version:'5.0-5D',axes:["x","y","z","t","w"]},sequence:recorded4DSequence}; const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spatial_5d_map_${Date.now()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); saveToVault(`Export_5D_${Date.now()}`,payload)}
-function exportCurrentPNG(){if(!pointCloudObject){appendChat('No map rendered','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`spatial_5d_frame_${Date.now()}.png`; a.click(); appendChat('PNG snapshot exported','system')}
-function export4DPhotoGIF(){if(!pointCloudObject){appendChat('No map model','error');return;} appendChat('Producing 5D orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spatial_5d_orbit_${Date.now()}.gif`; a.click(); appendChat('5D GIF ready','system')}); gif.render()}} cap()}
+function toggleFaceScanning(){isFaceScanning=!isFaceScanning; const b=document.getElementById('scan-toggle-btn'); if(isFaceScanning){recorded4DSequence=[]; is4DPlayMode=false; b.innerText='STOP & PRODUCE'; b.classList.add('scanning'); appendChat('Recording realistic face scan stream...','system')} else{b.innerText='RECORD 5D STREAM'; b.classList.remove('scanning');}}
+function exportScannedMap(){if(recorded4DSequence.length===0){alert('No data');return;} const payload={metadata:{generator:'Realistic 5D Sensor Pipeline',version:'5.0-5D',axes:["x","y","z","t","w"]},sequence:recorded4DSequence}; const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spatial_5d_realistic_${Date.now()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); saveToVault(`Export_Realistic_${Date.now()}`,payload)}
+function exportCurrentPNG(){if(!spatialObject){appendChat('No map rendered','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`realistic_face_${Date.now()}.png`; a.click(); appendChat('PNG snapshot exported','system')}
+function export4DPhotoGIF(){if(!spatialObject){appendChat('No map model','error');return;} appendChat('Producing orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`realistic_face_orbit_${Date.now()}.gif`; a.click(); appendChat('GIF ready','system')}); gif.render()}} cap()}
 
 function export4DWebMVideo(){
-    if(!renderer || !pointCloudObject){
-        appendChat('No active 5D map playback stream to record.', 'error');
+    if(!renderer || !spatialObject){
+        appendChat('No active playback stream to record.', 'error');
         return;
     }
 
-    appendChat('Producing 5D WebM video stream...', 'system');
+    appendChat('Producing realistic WebM video stream...', 'system');
     recordedChunks = [];
     const canvas = document.getElementById('three-canvas');
     const stream = canvas.captureStream(30); 
@@ -300,10 +345,10 @@ function export4DWebMVideo(){
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `spatial_5d_video_${Date.now()}.webm`;
+        a.download=`realistic_face_video_${Date.now()}.webm`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        appendChat('✓ 5D Video (.webm) exported successfully!', 'system');
+        appendChat('✓ Video (.webm) exported successfully!', 'system');
     };
 
     mediaRecorder.start();
