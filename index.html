@@ -169,13 +169,14 @@ function toNumberArray(arr){
 
 function extract4DSequence(data){
  if(!data) return null;
- let raw=null;
- if(Array.isArray(data.sequence)) raw=data.sequence;
- else if(Array.isArray(data.frames)) raw=data.frames.map(f=> f.geometryStream4D || f.geometryStream || f);
+ let raw = null;
+ if(Array.isArray(data.sequence)) raw = data.sequence;
+ else if(Array.isArray(data.frames)) raw = data.frames;
+ else if(Array.isArray(data)) raw = data;
  if(!raw) return null;
  
  return raw.map(f=>{
-  let v = f.vertices || f.positions || f.geometryStream4D?.vertices || [];
+  let v = f.vertices || f.positions || f.geometryStream4D?.vertices || f.geometryStream?.vertices || [];
   let c = f.colors || [];
   v = toNumberArray(v); c = toNumberArray(c);
   return {vertices4D: v, colors: c};
@@ -312,7 +313,6 @@ function initFaceMeshPipeline(){
      
      recorded4DSequence.push({ vertices: [...liveVertices], colors: [...liveColors] });
      
-     // Real-time synchronization upgrade for the spatial mapping processor
      raw4DSourceFrames = recorded4DSequence;
      playbackFrames = recorded4DSequence;
      playbackFrameIndex = recorded4DSequence.length - 1;
