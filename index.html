@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial 3D Map Processor – Omni Compatible</title>
+    <title>Spatial 3D Map Processor – Omni Compatible Advanced</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -102,16 +102,16 @@
 
     <div id="panel-file" class="input-panel">
         <div class="upload-section" onclick="document.getElementById('file-input').click()">
-            <span class="upload-label">Drop Omni JSON or click to upload<br><small style="opacity:0.6">(supports 100k–500k+ vertices)</small></span>
+            <span class="upload-label">Drop Omni/Infotter JSON or click to upload<br><small style="opacity:0.6">(supports robust multi-schema maps)</small></span>
             <input type="file" id="file-input" accept=".json,application/json" onchange="handleFileUpload(event)">
         </div>
         <button class="secondary-btn" onclick="clearScene()">Clear Scene</button>
     </div>
 
     <div id="panel-paste" class="input-panel" style="display:none;">
-        <textarea id="json-paste-box" placeholder="Paste Omni BufferGeometry JSON here (or use Upload for large files)..."></textarea>
+        <textarea id="json-paste-box" placeholder="Paste Omni / Infotter BufferGeometry JSON here..."></textarea>
         <button class="primary-btn" onclick="handleCodePaste()">Load Pasted JSON</button>
-        <div style="font-size:11px;color:#6b7280;">Tip: For maps &gt; 2 MB prefer the Upload tab.</div>
+        <div style="font-size:11px;color:#6b7280;">Tip: Supports custom properties & legacy serialization.</div>
     </div>
 
     <div id="panel-scan" class="input-panel" style="display:none;">
@@ -128,7 +128,7 @@
     </div>
 
     <div id="chat-container">
-        <div class="chat-message system">Ready. Upload an Omni Environment JSON (or Face scan) to build the spatial map.</div>
+        <div class="chat-message system">Ready. Upload environment JSON (Omni/Infotter formats supported) or start a face scan.</div>
     </div>
 
     <div class="chat-input-row">
@@ -155,9 +155,6 @@
     let isFaceScanning = false;
     let liveVertices = [], liveColors = [], liveIntensity = [];
 
-    // ─────────────────────────────────────────────
-    // Init
-    // ─────────────────────────────────────────────
     window.addEventListener('DOMContentLoaded', () => {
         try { init3D(); }
         catch (err) {
@@ -184,7 +181,6 @@
         controls.minDistance = 0.5;
         controls.maxDistance = 40;
 
-        // subtle floor grid
         const grid = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
         grid.position.y = -1.5;
         scene.add(grid);
@@ -213,9 +209,6 @@
         renderer.setSize(container.clientWidth, container.clientHeight);
     }
 
-    // ─────────────────────────────────────────────
-    // UI helpers
-    // ─────────────────────────────────────────────
     function switchInputMode(mode) {
         ['file', 'paste', 'scan'].forEach(m => {
             document.getElementById(`btn-tab-${m}`)?.classList.remove('active');
@@ -253,33 +246,45 @@
     }
 
     // ─────────────────────────────────────────────
-    // Core data processing – Omni compatible
+    // Robust Multi-Schema Ingestion Engine (Omni / Infotter)
     // ─────────────────────────────────────────────
     function processEnvironmentData(data) {
         setProgress(5);
-        appendChat('Parsing Omni BufferGeometry…', 'system');
+        appendChat('Parsing environment & infotter structures…', 'system');
 
         let rawPositions = null;
         let rawColors = null;
         let rawIntensity = null;
 
-        // Primary Omni schema
-        if (data?.data?.attributes?.position?.array) {
-            rawPositions = data.data.attributes.position.array;
-            if (data.data.attributes.color?.array) rawColors = data.data.attributes.color.array;
-            if (data.data.attributes.intensity?.array) rawIntensity = data.data.attributes.intensity.array;
+        // Extractors checking standard properties, nested geometries, or custom infotter descriptors
+        const extractAttributes = (obj) => {
+            if (!obj) return;
+            if (obj.position?.array) rawPositions = obj.position.array;
+            else if (obj.positions) rawPositions = obj.positions;
+            
+            if (obj.color?.array) rawColors = obj.color.array;
+            else if (obj.colors) rawColors = obj.colors;
+
+            if (obj.intensity?.array) rawIntensity = obj.intensity.array;
+            else if (obj.intensities) rawIntensity = obj.intensities;
+        };
+
+        // 1. Check primary standard root configurations
+        extractAttributes(data?.data?.attributes);
+        extractAttributes(data?.geometry?.data?.attributes);
+        extractAttributes(data?.infotter?.attributes); // Infotter custom schema channel
+        extractAttributes(data?.attributes);
+
+        // 2. Direct alternate mappings if root nodes are missing
+        if (!rawPositions) {
+            if (Array.isArray(data.vertices)) rawPositions = data.vertices;
+            else if (Array.isArray(data.points)) rawPositions = data.points;
+            else if (Array.isArray(data)) rawPositions = data;
+            else if (data.infotter?.vertices) rawPositions = data.infotter.vertices;
         }
-        // Nested geometry fallback
-        else if (data?.geometry?.data?.attributes?.position?.array) {
-            rawPositions = data.geometry.data.attributes.position.array;
-            if (data.geometry.data.attributes.color?.array) rawColors = data.geometry.data.attributes.color.array;
-        }
-        // Simple arrays
-        else if (Array.isArray(data.vertices)) rawPositions = data.vertices;
-        else if (Array.isArray(data)) rawPositions = data;
 
         if (!rawPositions || rawPositions.length < 3) {
-            appendChat('No valid position data found.', 'system');
+            appendChat('Error: Could not extract valid position or infotter node metrics.', 'system');
             setProgress(0);
             return;
         }
@@ -288,29 +293,25 @@
         document.getElementById('node-counter').innerText = vertexCount.toLocaleString();
         setProgress(25);
 
-        // Convert to typed array if needed (large pastes often arrive as normal arrays)
         const positions = (rawPositions instanceof Float32Array)
             ? rawPositions
             : new Float32Array(rawPositions);
 
         setProgress(40);
 
-        // Center + normalize
         const { centered, bbox } = centerAndNormalize(positions);
         setProgress(65);
 
-        // Build colors
         let colors = null;
         if (rawColors && rawColors.length >= vertexCount * 3) {
             colors = (rawColors instanceof Float32Array) ? rawColors : new Float32Array(rawColors);
         } else if (rawIntensity && rawIntensity.length >= vertexCount) {
-            // Generate pseudo-colors from intensity
             colors = new Float32Array(vertexCount * 3);
             for (let i = 0; i < vertexCount; i++) {
                 const t = Math.max(0, Math.min(1, rawIntensity[i] || 0.5));
-                colors[i*3]     = 0.15 + t * 0.55;   // R
-                colors[i*3 + 1] = 0.35 + t * 0.45;   // G
-                colors[i*3 + 2] = 0.85 - t * 0.35;   // B
+                colors[i*3]     = 0.15 + t * 0.55;
+                colors[i*3 + 1] = 0.35 + t * 0.45;
+                colors[i*3 + 2] = 0.85 - t * 0.35;
             }
         }
 
@@ -322,7 +323,7 @@
         document.getElementById('bbox-info').innerText =
             `Size ≈ ${bbox.sizeX.toFixed(2)} × ${bbox.sizeY.toFixed(2)} × ${bbox.sizeZ.toFixed(2)}`;
 
-        appendChat(`Loaded ${vertexCount.toLocaleString()} spatial nodes successfully.`, 'system');
+        appendChat(`Successfully mapped ${vertexCount.toLocaleString()} nodes using environment schema.`, 'system');
     }
 
     function centerAndNormalize(positions) {
@@ -346,7 +347,6 @@
         const sizeZ = maxZ - minZ;
         const maxDim = Math.max(sizeX, sizeY, sizeZ, 0.001);
 
-        // Scale so the longest axis is roughly 4 units (comfortable viewing)
         const scale = 4.0 / maxDim;
 
         const centered = new Float32Array(positions.length);
@@ -389,27 +389,20 @@
         }
 
         pointCloudObject = new THREE.Points(geometry, material);
-
-        // Omni scans are usually “camera looking forward”, flip so they face the user correctly
         pointCloudObject.rotation.y = Math.PI;
-
         scene.add(pointCloudObject);
 
-        // Nice camera framing
         const maxSize = Math.max(bbox.sizeX, bbox.sizeY, bbox.sizeZ);
         camera.position.set(0, maxSize * 0.35, maxSize * 1.6);
         controls.target.set(0, 0, 0);
         controls.update();
     }
 
-    // ─────────────────────────────────────────────
-    // File / Paste loaders
-    // ─────────────────────────────────────────────
     function handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        appendChat(`Reading file (${(file.size/1024/1024).toFixed(2)} MB)…`, 'system');
+        appendChat(`Reading configuration file (${(file.size/1024/1024).toFixed(2)} MB)…`, 'system');
         setProgress(2);
 
         const reader = new FileReader();
@@ -419,12 +412,12 @@
                 processEnvironmentData(data);
             } catch (err) {
                 console.error(err);
-                appendChat('JSON parse error – file may be truncated or invalid.', 'system');
+                appendChat('JSON parsing error – check file format integrity.', 'system');
                 setProgress(0);
             }
         };
         reader.onerror = () => {
-            appendChat('File read failed.', 'system');
+            appendChat('File read operation failed.', 'system');
             setProgress(0);
         };
         reader.readAsText(file);
@@ -437,13 +430,10 @@
             const data = JSON.parse(text);
             processEnvironmentData(data);
         } catch (err) {
-            appendChat('Invalid JSON pasted. For large Omni maps use the Upload tab.', 'system');
+            appendChat('Invalid JSON block. Ensure format matches requirements.', 'system');
         }
     }
 
-    // ─────────────────────────────────────────────
-    // Face scan path (kept intact & improved)
-    // ─────────────────────────────────────────────
     function initFaceMeshPipeline() {
         const videoElement = document.getElementById('webcam-video');
         const previewElement = document.getElementById('webcam-preview');
@@ -513,19 +503,19 @@
         } else {
             btn.innerText = 'START FACE SCAN';
             btn.classList.remove('scanning');
-            appendChat('Face scan stopped / locked.', 'system');
+            appendChat('Face scan locked.', 'system');
         }
     }
 
     function exportScannedMap() {
         if (liveVertices.length === 0) {
-            alert('No face data recorded yet.');
+            alert('No face tracking data available.');
             return;
         }
         const payload = {
             metadata: {
                 generator: 'Spatial 3D Face Scanner',
-                version: '2.2',
+                version: '2.5',
                 type: 'BufferGeometry',
                 totalVertices: liveVertices.length / 3,
                 timestamp: new Date().toISOString()
@@ -546,9 +536,6 @@
         URL.revokeObjectURL(a.href);
     }
 
-    // ─────────────────────────────────────────────
-    // Chat
-    // ─────────────────────────────────────────────
     function sendChatMessage() {
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
@@ -557,7 +544,7 @@
         input.value = '';
         setTimeout(() => {
             const count = document.getElementById('node-counter').innerText;
-            appendChat(`Spatial AI: Current map contains ${count} points.`, 'system');
+            appendChat(`Spatial AI: Active environment buffer tracks ${count} spatial nodes.`, 'system');
         }, 400);
     }
     function handleKeyPress(e) { if (e.key === 'Enter') sendChatMessage(); }
