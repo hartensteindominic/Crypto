@@ -9,14 +9,25 @@
     let liveColors = [];
     let liveIntensity = [];
 
+    window.addEventListener('DOMContentLoaded', () => {
+        try {
+            init3D();
+        } catch (err) {
+            console.error("Initialization error:", err);
+            document.getElementById('render-status').innerText = "Load Error";
+        }
+    });
+
     function init3D() {
         const container = document.getElementById('viewer-container');
+        if (!container) return;
         
         scene = new THREE.Scene();
         camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
         camera.position.set(0, 0, 3.0);
 
-        renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('three-canvas'), antialias: true });
+        const canvas = document.getElementById('three-canvas');
+        renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
 
@@ -34,12 +45,13 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
+        if (controls) controls.update();
+        if (renderer && scene && camera) renderer.render(scene, camera);
     }
 
     function onWindowResize() {
         const container = document.getElementById('viewer-container');
+        if (!container || !camera || !renderer) return;
         camera.aspect = container.clientWidth / container.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -47,16 +59,25 @@
 
     function switchInputMode(mode) {
         ['file', 'paste', 'scan'].forEach(m => {
-            document.getElementById(`btn-tab-${m}`).classList.remove('active');
-            document.getElementById(`panel-${m}`).style.display = 'none';
+            const btn = document.getElementById(`btn-tab-${m}`);
+            const panel = document.getElementById(`panel-${m}`);
+            if (btn) btn.classList.remove('active');
+            if (panel) panel.style.display = 'none';
         });
-        document.getElementById(`btn-tab-${mode}`).classList.add('active');
-        document.getElementById(`panel-${mode}`).style.display = 'flex';
+        const activeBtn = document.getElementById(`btn-tab-${mode}`);
+        const activePanel = document.getElementById(`panel-${mode}`);
+        if (activeBtn) activeBtn.classList.add('active');
+        if (activePanel) activePanel.style.display = 'flex';
     }
 
     function initFaceMeshPipeline() {
         const videoElement = document.getElementById('webcam-video');
         const previewElement = document.getElementById('webcam-preview');
+
+        if (typeof FaceMesh === 'undefined') {
+            console.warn("MediaPipe FaceMesh script not loaded yet.");
+            return;
+        }
 
         faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
         faceMesh.setOptions({
@@ -90,25 +111,28 @@
             }
         });
 
-        cameraUtils = new Camera(videoElement, {
-            onFrame: async () => {
-                if (isFaceScanning && videoElement) {
-                    await faceMesh.send({image: videoElement});
-                }
-            },
-            width: 640,
-            height: 480
-        });
-        cameraUtils.start();
+        if (videoElement && typeof Camera !== 'undefined') {
+            cameraUtils = new Camera(videoElement, {
+                onFrame: async () => {
+                    if (isFaceScanning && videoElement) {
+                        await faceMesh.send({image: videoElement});
+                    }
+                },
+                width: 640,
+                height: 480
+            });
+            cameraUtils.start();
+        }
 
-        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-            previewElement.srcObject = stream;
+        navigator.mediaDevices?.getUserMedia({ video: true }).then(stream => {
+            if (previewElement) previewElement.srcObject = stream;
         }).catch(e => console.log("Webcam preview unavailable"));
     }
 
     function toggleFaceScanning() {
         isFaceScanning = !isFaceScanning;
         const btn = document.getElementById('scan-toggle-btn');
+        if (!btn) return;
         if (isFaceScanning) {
             btn.innerText = "STOP FACE SCAN";
             btn.classList.add("scanning");
@@ -167,7 +191,9 @@
     }
 
     function handleCodePaste() {
-        const text = document.getElementById('json-paste-box').value.trim();
+        const textarea = document.getElementById('json-paste-box');
+        if (!textarea) return;
+        const text = textarea.value.trim();
         if (!text) return;
         try {
             processEnvironmentData(JSON.parse(text));
@@ -176,9 +202,6 @@
         }
     }
 
-    /**
-     * UPGRADED PROCESSOR: Safely extracts positions and colors across multiple JSON schemas
-     */
     function processEnvironmentData(data) {
         let rawPositions = [];
         let rawColors = [];
@@ -210,9 +233,6 @@
         appendChat(`Successfully processed and mapped ${normalizedPositions.length / 3} nodes.`, "system");
     }
 
-    /**
-     * Normalizes point clouds so they center cleanly inside the viewport
-     */
     function centerAndNormalizeCoordinates(positions) {
         let minX = Infinity, maxX = -Infinity;
         let minY = Infinity, maxY = -Infinity;
@@ -264,6 +284,7 @@
 
     function appendChat(text, sender = "") {
         const chatContainer = document.getElementById('chat-container');
+        if (!chatContainer) return;
         const msg = document.createElement('div');
         msg.className = `chat-message ${sender}`;
         msg.innerText = text;
@@ -273,17 +294,16 @@
 
     function sendChatMessage() {
         const input = document.getElementById('chat-input');
+        if (!input) return;
         const text = input.value.trim();
         if (!text) return;
         appendChat(text);
         input.value = "";
         setTimeout(() => {
-            const count = document.getElementById('node-counter').innerText;
+            const count = document.getElementById('node-counter')?.innerText || 0;
             appendChat(`Spatial AI: Active viewport contains ${count} rendered 3D spatial points.`, "system");
         }, 500);
     }
 
     function handleKeyPress(e) { if (e.key === 'Enter') sendChatMessage(); }
-
-    window.onload = init3D;
 </script>
