@@ -183,17 +183,14 @@
         let rawPositions = [];
         let rawColors = [];
 
-        // Check Schema Type A: Nested BufferGeometry attributes
         if (data.data?.attributes?.position?.array) {
             rawPositions = data.data.attributes.position.array;
             if (data.data.attributes.color?.array) rawColors = data.data.attributes.color.array;
         } 
-        // Check Schema Type B: Standard Three.js JSON geometry structure
         else if (data.geometry?.data?.attributes?.position?.array) {
             rawPositions = data.geometry.data.attributes.position.array;
             if (data.geometry.data.attributes.color?.array) rawColors = data.geometry.data.attributes.color.array;
         } 
-        // Check Schema Type C: Simple root arrays or flat lists
         else if (Array.isArray(data.vertices)) {
             rawPositions = data.vertices;
         } else if (Array.isArray(data)) {
@@ -205,7 +202,6 @@
             return;
         }
 
-        // Normalize coordinates to center view automatically
         let normalizedPositions = centerAndNormalizeCoordinates(rawPositions);
 
         updatePointCloud(normalizedPositions, rawColors);
@@ -219,10 +215,9 @@
      */
     function centerAndNormalizeCoordinates(positions) {
         let minX = Infinity, maxX = -Infinity;
-        let minY = InfinitY = Infinity, maxY = -Infinity; // Keep simple tracking
+        let minY = Infinity, maxY = -Infinity;
         let minZ = Infinity, maxZ = -Infinity;
 
-        // Simple pass to find boundaries
         for (let i = 0; i < positions.length; i += 3) {
             let x = positions[i], y = positions[i+1], z = positions[i+2];
             if (x < minX) minX = x; if (x > maxX) maxX = x;
@@ -234,7 +229,6 @@
         let cy = (minY + maxY) / 2;
         let cz = (minZ + maxZ) / 2;
 
-        // Return re-centered array copy
         let centered = new Float32Array(positions.length);
         for (let i = 0; i < positions.length; i += 3) {
             centered[i]   = positions[i] - cx;
