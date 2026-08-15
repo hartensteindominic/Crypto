@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial 3D Face Scanner & Environment Viewer</title>
+    <title>Spatial 3D Map Processor – Omni Compatible</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            background-color: #0b0f19;
+            background: #0b0f19;
             color: #f3f4f6;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             height: 100vh;
@@ -20,48 +20,52 @@
             border-right: 1px solid #1f2937;
             display: flex;
             flex-direction: column;
-            padding: 24px;
-            gap: 16px;
+            padding: 20px;
+            gap: 14px;
             z-index: 10;
+            overflow-y: auto;
         }
-        .brand { font-size: 16px; font-weight: 800; letter-spacing: 1px; color: #60a5fa; }
-        .action-toggle-row { display: flex; gap: 8px; }
+        .brand { font-size: 15px; font-weight: 800; letter-spacing: 1px; color: #60a5fa; }
+        .action-toggle-row { display: flex; gap: 6px; }
         .tab-btn {
-            flex: 1; padding: 8px; background: #1f2937; border: 1px solid #374151;
+            flex: 1; padding: 8px 4px; background: #1f2937; border: 1px solid #374151;
             border-radius: 8px; color: #9ca3af; font-size: 11px; font-weight: 600; cursor: pointer;
         }
         .tab-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
         .input-panel { display: flex; flex-direction: column; gap: 10px; }
         .upload-section {
-            border: 2px dashed #374151; padding: 14px; border-radius: 12px;
-            text-align: center; background: rgba(255, 255, 255, 0.02); cursor: pointer;
+            border: 2px dashed #374151; padding: 16px; border-radius: 12px;
+            text-align: center; background: rgba(255,255,255,0.02); cursor: pointer;
+            transition: border-color 0.2s;
         }
+        .upload-section:hover { border-color: #60a5fa; }
         input[type="file"] { display: none; }
         .upload-label { font-size: 12px; color: #9ca3af; cursor: pointer; display: block; }
         textarea {
-            width: 100%; height: 90px; background: #1f2937; border: 1px solid #374151;
-            padding: 8px; border-radius: 8px; color: #ffffff; font-family: monospace; font-size: 11px; resize: none;
+            width: 100%; height: 80px; background: #1f2937; border: 1px solid #374151;
+            padding: 8px; border-radius: 8px; color: #fff; font-family: monospace; font-size: 11px; resize: none;
         }
         .scanner-controls {
-            background: rgba(31, 41, 55, 0.4); border: 1px solid #374151;
+            background: rgba(31,41,55,0.5); border: 1px solid #374151;
             padding: 12px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px;
         }
         .scanner-title { font-size: 12px; font-weight: 700; color: #60a5fa; }
         #chat-container {
-            flex: 1; background: #1f2937; border-radius: 12px; padding: 12px;
-            display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 150px; font-size: 12px;
+            flex: 1; min-height: 120px; background: #1f2937; border-radius: 12px; padding: 10px;
+            display: flex; flex-direction: column; gap: 8px; overflow-y: auto; font-size: 12px;
         }
-        .chat-message { padding: 8px 12px; border-radius: 8px; background: #374151; color: #d1d5db; }
+        .chat-message { padding: 7px 10px; border-radius: 8px; background: #374151; color: #d1d5db; }
         .chat-message.system { background: #1e3a8a; color: #93c5fd; }
-        .chat-input-row { display: flex; gap: 8px; }
+        .chat-input-row { display: flex; gap: 6px; }
         input[type="text"] {
             flex: 1; background: #1f2937; border: 1px solid #374151; padding: 8px; border-radius: 8px; color: white; font-size: 12px;
         }
         button.primary-btn {
-            background: #2563eb; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px;
+            background: #2563eb; color: white; border: none; padding: 8px 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px;
         }
         button.danger-btn { background: #dc2626; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 12px; }
         button.danger-btn.scanning { background: #ea580c; }
+        button.secondary-btn { background: #374151; color: #e5e7eb; border: none; padding: 8px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 12px; }
         #viewer-container {
             flex: 1; position: relative; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
         }
@@ -71,12 +75,15 @@
             border: 2px solid #374151; border-radius: 10px; object-fit: cover; transform: scaleX(-1); background: #000; z-index: 5;
         }
         .stats-overlay {
-            position: absolute; top: 20px; right: 20px; background: rgba(17, 24, 39, 0.85);
-            backdrop-filter: blur(8px); padding: 12px 18px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 12px; color: #9ca3af;
+            position: absolute; top: 16px; right: 16px; background: rgba(17,24,39,0.9);
+            backdrop-filter: blur(10px); padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: #9ca3af;
         }
         .stats-overlay span { color: #60a5fa; font-weight: bold; }
+        .progress-bar {
+            height: 4px; background: #1f2937; border-radius: 2px; overflow: hidden; margin-top: 6px;
+        }
+        .progress-fill { height: 100%; background: #60a5fa; width: 0%; transition: width 0.2s; }
     </style>
-    <!-- Three.js and MediaPipe Dependencies -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -84,363 +91,476 @@
 </head>
 <body>
 
-    <div id="sidebar">
-        <div class="brand">SPATIAL 3D VIEWER</div>
-        
-        <div class="action-toggle-row">
-            <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
-            <button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste JSON</button>
-            <button id="btn-tab-scan" class="tab-btn" onclick="switchInputMode('scan')">👤 Face Scan</button>
-        </div>
+<div id="sidebar">
+    <div class="brand">SPATIAL 3D MAP PROCESSOR</div>
+    
+    <div class="action-toggle-row">
+        <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
+        <button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste</button>
+        <button id="btn-tab-scan" class="tab-btn" onclick="switchInputMode('scan')">👤 Face</button>
+    </div>
 
-        <div id="panel-file" class="input-panel">
-            <div class="upload-section" onclick="document.getElementById('file-input').click()">
-                <span class="upload-label">Drop JSON Map or Click to Upload</span>
-                <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(event)">
-            </div>
+    <div id="panel-file" class="input-panel">
+        <div class="upload-section" onclick="document.getElementById('file-input').click()">
+            <span class="upload-label">Drop Omni JSON or click to upload<br><small style="opacity:0.6">(supports 100k–500k+ vertices)</small></span>
+            <input type="file" id="file-input" accept=".json,application/json" onchange="handleFileUpload(event)">
         </div>
+        <button class="secondary-btn" onclick="clearScene()">Clear Scene</button>
+    </div>
 
-        <div id="panel-paste" class="input-panel" style="display: none;">
-            <textarea id="json-paste-box" placeholder="Paste BufferGeometry JSON payload..."></textarea>
-            <button class="primary-btn" onclick="handleCodePaste()">Load Pasted Code</button>
-        </div>
+    <div id="panel-paste" class="input-panel" style="display:none;">
+        <textarea id="json-paste-box" placeholder="Paste Omni BufferGeometry JSON here (or use Upload for large files)..."></textarea>
+        <button class="primary-btn" onclick="handleCodePaste()">Load Pasted JSON</button>
+        <div style="font-size:11px;color:#6b7280;">Tip: For maps &gt; 2 MB prefer the Upload tab.</div>
+    </div>
 
-        <div id="panel-scan" class="input-panel" style="display: none;">
-            <div class="scanner-controls">
-                <div class="scanner-title">Live 3D Face Mapping</div>
-                <button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">START FACE SCAN</button>
-                <button class="primary-btn" onclick="exportScannedMap()" style="background: #10b981;">Export Face JSON</button>
-            </div>
-        </div>
-
-        <div style="font-size: 12px; color: #9ca3af;">
-            Nodes Loaded: <span id="node-counter">0</span>
-        </div>
-
-        <div id="chat-container">
-            <div class="chat-message system">System ready. Choose Upload, Paste JSON, or switch to Face Scan.</div>
-        </div>
-
-        <div class="chat-input-row">
-            <input type="text" id="chat-input" placeholder="Ask AI about the map..." onkeypress="handleKeyPress(event)">
-            <button class="primary-btn" onclick="sendChatMessage()">Send</button>
+    <div id="panel-scan" class="input-panel" style="display:none;">
+        <div class="scanner-controls">
+            <div class="scanner-title">Live 3D Face Mapping</div>
+            <button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">START FACE SCAN</button>
+            <button class="primary-btn" onclick="exportScannedMap()" style="background:#10b981;">Export Face JSON</button>
         </div>
     </div>
 
-    <div id="viewer-container">
-        <div class="stats-overlay">
-            Status: <span id="render-status">Awaiting Dataset</span>
-        </div>
-        <video id="webcam-video" autoplay playsinline muted style="display:none;"></video>
-        <video id="webcam-preview" autoplay playsinline muted></video>
-        <canvas id="three-canvas"></canvas>
+    <div style="font-size:12px;color:#9ca3af;">
+        Nodes: <span id="node-counter">0</span>
+        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
     </div>
 
-    <script>
-        let scene, camera, renderer, controls;
-        let pointCloudObject = null;
-        let faceMesh = null;
-        let cameraUtils = null;
-        let isFaceScanning = false;
-        
-        let liveVertices = [];
-        let liveColors = [];
-        let liveIntensity = [];
+    <div id="chat-container">
+        <div class="chat-message system">Ready. Upload an Omni Environment JSON (or Face scan) to build the spatial map.</div>
+    </div>
 
-        window.addEventListener('DOMContentLoaded', () => {
+    <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask about the loaded map…" onkeypress="handleKeyPress(event)">
+        <button class="primary-btn" onclick="sendChatMessage()">Send</button>
+    </div>
+</div>
+
+<div id="viewer-container">
+    <div class="stats-overlay">
+        Status: <span id="render-status">Awaiting Dataset</span><br>
+        <span id="bbox-info" style="font-size:11px;color:#6b7280;"></span>
+    </div>
+    <video id="webcam-video" autoplay playsinline muted style="display:none;"></video>
+    <video id="webcam-preview" autoplay playsinline muted></video>
+    <canvas id="three-canvas"></canvas>
+</div>
+
+<script>
+    let scene, camera, renderer, controls;
+    let pointCloudObject = null;
+    let faceMesh = null;
+    let cameraUtils = null;
+    let isFaceScanning = false;
+    let liveVertices = [], liveColors = [], liveIntensity = [];
+
+    // ─────────────────────────────────────────────
+    // Init
+    // ─────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        try { init3D(); }
+        catch (err) {
+            console.error(err);
+            document.getElementById('render-status').innerText = "Init Error";
+        }
+    });
+
+    function init3D() {
+        const container = document.getElementById('viewer-container');
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.05, 2000);
+        camera.position.set(0, 0.8, 4.5);
+
+        const canvas = document.getElementById('three-canvas');
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x0f172a);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 0.5;
+        controls.maxDistance = 40;
+
+        // subtle floor grid
+        const grid = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
+        grid.position.y = -1.5;
+        scene.add(grid);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+        const dir = new THREE.DirectionalLight(0xffffff, 0.4);
+        dir.position.set(5, 10, 7);
+        scene.add(dir);
+
+        window.addEventListener('resize', onWindowResize);
+        initFaceMeshPipeline();
+        animate();
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (controls) controls.update();
+        if (renderer && scene && camera) renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+        const container = document.getElementById('viewer-container');
+        if (!container || !camera || !renderer) return;
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    // ─────────────────────────────────────────────
+    // UI helpers
+    // ─────────────────────────────────────────────
+    function switchInputMode(mode) {
+        ['file', 'paste', 'scan'].forEach(m => {
+            document.getElementById(`btn-tab-${m}`)?.classList.remove('active');
+            document.getElementById(`panel-${m}`).style.display = 'none';
+        });
+        document.getElementById(`btn-tab-${mode}`)?.classList.add('active');
+        document.getElementById(`panel-${mode}`).style.display = 'flex';
+    }
+
+    function setProgress(pct) {
+        document.getElementById('progress-fill').style.width = Math.min(100, Math.max(0, pct)) + '%';
+    }
+
+    function appendChat(text, sender = "") {
+        const box = document.getElementById('chat-container');
+        const msg = document.createElement('div');
+        msg.className = `chat-message ${sender}`;
+        msg.innerText = text;
+        box.appendChild(msg);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function clearScene() {
+        if (pointCloudObject) {
+            scene.remove(pointCloudObject);
+            pointCloudObject.geometry.dispose();
+            pointCloudObject.material.dispose();
+            pointCloudObject = null;
+        }
+        document.getElementById('node-counter').innerText = '0';
+        document.getElementById('render-status').innerText = 'Scene cleared';
+        document.getElementById('bbox-info').innerText = '';
+        setProgress(0);
+        appendChat('Scene cleared.', 'system');
+    }
+
+    // ─────────────────────────────────────────────
+    // Core data processing – Omni compatible
+    // ─────────────────────────────────────────────
+    function processEnvironmentData(data) {
+        setProgress(5);
+        appendChat('Parsing Omni BufferGeometry…', 'system');
+
+        let rawPositions = null;
+        let rawColors = null;
+        let rawIntensity = null;
+
+        // Primary Omni schema
+        if (data?.data?.attributes?.position?.array) {
+            rawPositions = data.data.attributes.position.array;
+            if (data.data.attributes.color?.array) rawColors = data.data.attributes.color.array;
+            if (data.data.attributes.intensity?.array) rawIntensity = data.data.attributes.intensity.array;
+        }
+        // Nested geometry fallback
+        else if (data?.geometry?.data?.attributes?.position?.array) {
+            rawPositions = data.geometry.data.attributes.position.array;
+            if (data.geometry.data.attributes.color?.array) rawColors = data.geometry.data.attributes.color.array;
+        }
+        // Simple arrays
+        else if (Array.isArray(data.vertices)) rawPositions = data.vertices;
+        else if (Array.isArray(data)) rawPositions = data;
+
+        if (!rawPositions || rawPositions.length < 3) {
+            appendChat('No valid position data found.', 'system');
+            setProgress(0);
+            return;
+        }
+
+        const vertexCount = Math.floor(rawPositions.length / 3);
+        document.getElementById('node-counter').innerText = vertexCount.toLocaleString();
+        setProgress(25);
+
+        // Convert to typed array if needed (large pastes often arrive as normal arrays)
+        const positions = (rawPositions instanceof Float32Array)
+            ? rawPositions
+            : new Float32Array(rawPositions);
+
+        setProgress(40);
+
+        // Center + normalize
+        const { centered, bbox } = centerAndNormalize(positions);
+        setProgress(65);
+
+        // Build colors
+        let colors = null;
+        if (rawColors && rawColors.length >= vertexCount * 3) {
+            colors = (rawColors instanceof Float32Array) ? rawColors : new Float32Array(rawColors);
+        } else if (rawIntensity && rawIntensity.length >= vertexCount) {
+            // Generate pseudo-colors from intensity
+            colors = new Float32Array(vertexCount * 3);
+            for (let i = 0; i < vertexCount; i++) {
+                const t = Math.max(0, Math.min(1, rawIntensity[i] || 0.5));
+                colors[i*3]     = 0.15 + t * 0.55;   // R
+                colors[i*3 + 1] = 0.35 + t * 0.45;   // G
+                colors[i*3 + 2] = 0.85 - t * 0.35;   // B
+            }
+        }
+
+        setProgress(85);
+        updatePointCloud(centered, colors, bbox);
+        setProgress(100);
+
+        document.getElementById('render-status').innerText = 'Spatial Map Ready';
+        document.getElementById('bbox-info').innerText =
+            `Size ≈ ${bbox.sizeX.toFixed(2)} × ${bbox.sizeY.toFixed(2)} × ${bbox.sizeZ.toFixed(2)}`;
+
+        appendChat(`Loaded ${vertexCount.toLocaleString()} spatial nodes successfully.`, 'system');
+    }
+
+    function centerAndNormalize(positions) {
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i], y = positions[i+1], z = positions[i+2];
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+        }
+
+        const cx = (minX + maxX) * 0.5;
+        const cy = (minY + maxY) * 0.5;
+        const cz = (minZ + maxZ) * 0.5;
+
+        const sizeX = maxX - minX;
+        const sizeY = maxY - minY;
+        const sizeZ = maxZ - minZ;
+        const maxDim = Math.max(sizeX, sizeY, sizeZ, 0.001);
+
+        // Scale so the longest axis is roughly 4 units (comfortable viewing)
+        const scale = 4.0 / maxDim;
+
+        const centered = new Float32Array(positions.length);
+        for (let i = 0; i < positions.length; i += 3) {
+            centered[i]   = (positions[i]   - cx) * scale;
+            centered[i+1] = (positions[i+1] - cy) * scale;
+            centered[i+2] = (positions[i+2] - cz) * scale;
+        }
+
+        return {
+            centered,
+            bbox: { sizeX: sizeX * scale, sizeY: sizeY * scale, sizeZ: sizeZ * scale }
+        };
+    }
+
+    function updatePointCloud(positions, colors, bbox) {
+        if (pointCloudObject) {
+            scene.remove(pointCloudObject);
+            pointCloudObject.geometry.dispose();
+            pointCloudObject.material.dispose();
+            pointCloudObject = null;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.035,
+            sizeAttenuation: true,
+            transparent: true,
+            opacity: 0.92,
+            depthWrite: false
+        });
+
+        if (colors && colors.length === positions.length) {
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            material.vertexColors = true;
+        } else {
+            material.color = new THREE.Color(0x60a5fa);
+        }
+
+        pointCloudObject = new THREE.Points(geometry, material);
+
+        // Omni scans are usually “camera looking forward”, flip so they face the user correctly
+        pointCloudObject.rotation.y = Math.PI;
+
+        scene.add(pointCloudObject);
+
+        // Nice camera framing
+        const maxSize = Math.max(bbox.sizeX, bbox.sizeY, bbox.sizeZ);
+        camera.position.set(0, maxSize * 0.35, maxSize * 1.6);
+        controls.target.set(0, 0, 0);
+        controls.update();
+    }
+
+    // ─────────────────────────────────────────────
+    // File / Paste loaders
+    // ─────────────────────────────────────────────
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        appendChat(`Reading file (${(file.size/1024/1024).toFixed(2)} MB)…`, 'system');
+        setProgress(2);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
             try {
-                init3D();
+                const data = JSON.parse(e.target.result);
+                processEnvironmentData(data);
             } catch (err) {
-                console.error("Initialization error:", err);
-                document.getElementById('render-status').innerText = "Load Error";
+                console.error(err);
+                appendChat('JSON parse error – file may be truncated or invalid.', 'system');
+                setProgress(0);
+            }
+        };
+        reader.onerror = () => {
+            appendChat('File read failed.', 'system');
+            setProgress(0);
+        };
+        reader.readAsText(file);
+    }
+
+    function handleCodePaste() {
+        const text = document.getElementById('json-paste-box').value.trim();
+        if (!text) return;
+        try {
+            const data = JSON.parse(text);
+            processEnvironmentData(data);
+        } catch (err) {
+            appendChat('Invalid JSON pasted. For large Omni maps use the Upload tab.', 'system');
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Face scan path (kept intact & improved)
+    // ─────────────────────────────────────────────
+    function initFaceMeshPipeline() {
+        const videoElement = document.getElementById('webcam-video');
+        const previewElement = document.getElementById('webcam-preview');
+
+        if (typeof FaceMesh === 'undefined') return;
+
+        faceMesh = new FaceMesh({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults((results) => {
+            if (!isFaceScanning) return;
+            if (results.multiFaceLandmarks?.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+                liveVertices = [];
+                liveColors = [];
+                liveIntensity = [];
+
+                for (const pt of landmarks) {
+                    const x = (pt.x - 0.5) * -3.0;
+                    const y = (pt.y - 0.5) * -3.0;
+                    const z = (pt.z || 0) * 3.0;
+
+                    liveVertices.push(x, y, z);
+                    liveColors.push(Math.abs(x)*0.4 + 0.3, 0.55, 1.0 - Math.abs(z)*0.5);
+                    liveIntensity.push(0.75 + (pt.z || 0) * 0.25);
+                }
+
+                updatePointCloud(
+                    new Float32Array(liveVertices),
+                    new Float32Array(liveColors),
+                    { sizeX: 3, sizeY: 3, sizeZ: 2 }
+                );
+                document.getElementById('node-counter').innerText = (liveVertices.length / 3).toFixed(0);
+                document.getElementById('render-status').innerText = 'Face Tracking Active';
             }
         });
 
-        function init3D() {
-            const container = document.getElementById('viewer-container');
-            if (!container) return;
-            
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(0, 0, 3.0);
-
-            const canvas = document.getElementById('three-canvas');
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-
-            scene.add(new THREE.GridHelper(20, 20, 0x374151, 0x1f2937));
-            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-
-            window.addEventListener('resize', onWindowResize);
-            initFaceMeshPipeline();
-            animate();
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if (controls) controls.update();
-            if (renderer && scene && camera) renderer.render(scene, camera);
-        }
-
-        function onWindowResize() {
-            const container = document.getElementById('viewer-container');
-            if (!container || !camera || !renderer) return;
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        }
-
-        function switchInputMode(mode) {
-            ['file', 'paste', 'scan'].forEach(m => {
-                const btn = document.getElementById(`btn-tab-${m}`);
-                const panel = document.getElementById(`panel-${m}`);
-                if (btn) btn.classList.remove('active');
-                if (panel) panel.style.display = 'none';
-            });
-            const activeBtn = document.getElementById(`btn-tab-${mode}`);
-            const activePanel = document.getElementById(`panel-${mode}`);
-            if (activeBtn) activeBtn.classList.add('active');
-            if (activePanel) activePanel.style.display = 'flex';
-        }
-
-        function initFaceMeshPipeline() {
-            const videoElement = document.getElementById('webcam-video');
-            const previewElement = document.getElementById('webcam-preview');
-
-            if (typeof FaceMesh === 'undefined') return;
-
-            faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-            faceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
-
-            faceMesh.onResults((results) => {
-                if (!isFaceScanning) return;
-                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    let landmarks = results.multiFaceLandmarks[0];
-                    liveVertices = [];
-                    liveColors = [];
-                    liveIntensity = [];
-
-                    for (let pt of landmarks) {
-                        let x = parseFloat(((pt.x - 0.5) * -3.0).toFixed(3));
-                        let y = parseFloat(((pt.y - 0.5) * -3.0).toFixed(3));
-                        let z = parseFloat((pt.z * 3.0).toFixed(3));
-
-                        liveVertices.push(x, y, z);
-                        liveColors.push(parseFloat(Math.abs(x).toFixed(2)), 0.5, parseFloat((1.0 - Math.abs(z)).toFixed(2)));
-                        liveIntensity.push(parseFloat((0.8 + pt.z * 0.2).toFixed(2)));
-                    }
-
-                    updatePointCloud(liveVertices, liveColors);
-                    document.getElementById('node-counter').innerText = liveVertices.length / 3;
-                    document.getElementById('render-status').innerText = "Face Tracking Active";
-                }
-            });
-
-            if (videoElement && typeof Camera !== 'undefined') {
-                cameraUtils = new Camera(videoElement, {
-                    onFrame: async () => {
-                        if (isFaceScanning && videoElement) {
-                            await faceMesh.send({image: videoElement});
-                        }
-                    },
-                    width: 640,
-                    height: 480
-                });
-                cameraUtils.start();
-            }
-
-            navigator.mediaDevices?.getUserMedia({ video: true }).then(stream => {
-                if (previewElement) previewElement.srcObject = stream;
-            }).catch(e => console.log("Webcam preview unavailable"));
-        }
-
-        function toggleFaceScanning() {
-            isFaceScanning = !isFaceScanning;
-            const btn = document.getElementById('scan-toggle-btn');
-            if (!btn) return;
-            if (isFaceScanning) {
-                btn.innerText = "STOP FACE SCAN";
-                btn.classList.add("scanning");
-                appendChat("Face scanner initialized. Look directly into the camera.", "system");
-            } else {
-                btn.innerText = "START FACE SCAN";
-                btn.classList.remove("scanning");
-                appendChat("Face scan locked and captured successfully.", "system");
-            }
-        }
-
-        function exportScannedMap() {
-            if (liveVertices.length === 0) {
-                alert("No face nodes recorded yet. Start scanning first.");
-                return;
-            }
-
-            const payload = {
-                metadata: {
-                    generator: "Spatial 3D Face Scanner",
-                    version: "2.1",
-                    type: "BufferGeometry",
-                    totalVertices: liveVertices.length / 3,
-                    timestamp: new Date().toISOString()
+        if (videoElement && typeof Camera !== 'undefined') {
+            cameraUtils = new Camera(videoElement, {
+                onFrame: async () => {
+                    if (isFaceScanning) await faceMesh.send({ image: videoElement });
                 },
-                data: {
-                    attributes: {
-                        position: { itemSize: 3, type: "Float32Array", array: liveVertices },
-                        color: { itemSize: 3, type: "Float32Array", array: liveColors },
-                        intensity: { itemSize: 1, type: "Float32Array", array: liveIntensity }
-                    }
+                width: 640, height: 480
+            });
+            cameraUtils.start();
+        }
+
+        navigator.mediaDevices?.getUserMedia({ video: true })
+            .then(stream => { if (previewElement) previewElement.srcObject = stream; })
+            .catch(() => {});
+    }
+
+    function toggleFaceScanning() {
+        isFaceScanning = !isFaceScanning;
+        const btn = document.getElementById('scan-toggle-btn');
+        if (isFaceScanning) {
+            btn.innerText = 'STOP FACE SCAN';
+            btn.classList.add('scanning');
+            appendChat('Face scanner running… look at the camera.', 'system');
+        } else {
+            btn.innerText = 'START FACE SCAN';
+            btn.classList.remove('scanning');
+            appendChat('Face scan stopped / locked.', 'system');
+        }
+    }
+
+    function exportScannedMap() {
+        if (liveVertices.length === 0) {
+            alert('No face data recorded yet.');
+            return;
+        }
+        const payload = {
+            metadata: {
+                generator: 'Spatial 3D Face Scanner',
+                version: '2.2',
+                type: 'BufferGeometry',
+                totalVertices: liveVertices.length / 3,
+                timestamp: new Date().toISOString()
+            },
+            data: {
+                attributes: {
+                    position:  { itemSize: 3, type: 'Float32Array', array: liveVertices },
+                    color:     { itemSize: 3, type: 'Float32Array', array: liveColors },
+                    intensity: { itemSize: 1, type: 'Float32Array', array: liveIntensity }
                 }
-            };
-
-            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `face_scan_${Date.now()}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    processEnvironmentData(JSON.parse(e.target.result));
-                } catch (err) {
-                    appendChat("Error parsing uploaded JSON file.", "system");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        function handleCodePaste() {
-            const textarea = document.getElementById('json-paste-box');
-            if (!textarea) return;
-            const text = textarea.value.trim();
-            if (!text) return;
-            try {
-                processEnvironmentData(JSON.parse(text));
-            } catch (err) {
-                appendChat("Invalid JSON format pasted.", "system");
             }
-        }
+        };
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `face_scan_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
 
-        function processEnvironmentData(data) {
-            let rawPositions = [];
-            let rawColors = [];
-
-            if (data.data?.attributes?.position?.array) {
-                rawPositions = data.data.attributes.position.array;
-                if (data.data.attributes.color?.array) rawColors = data.data.attributes.color.array;
-            } 
-            else if (data.geometry?.data?.attributes?.position?.array) {
-                rawPositions = data.geometry.data.attributes.position.array;
-                if (data.geometry.data.attributes.color?.array) rawColors = data.geometry.data.attributes.color.array;
-            } 
-            else if (Array.isArray(data.vertices)) {
-                rawPositions = data.vertices;
-            } else if (Array.isArray(data)) {
-                rawPositions = data;
-            }
-
-            if (!rawPositions || rawPositions.length === 0) {
-                appendChat("Parsing Failed: No recognizable coordinate arrays found.", "system");
-                return;
-            }
-
-            let normalizedPositions = centerAndNormalizeCoordinates(rawPositions);
-
-            updatePointCloud(normalizedPositions, rawColors);
-            document.getElementById('node-counter').innerText = normalizedPositions.length / 3;
-            document.getElementById('render-status').innerText = "Dataset Optimized & Loaded";
-            appendChat(`Successfully processed and mapped ${normalizedPositions.length / 3} nodes.`, "system");
-        }
-
-        function centerAndNormalizeCoordinates(positions) {
-            let minX = Infinity, maxX = -Infinity;
-            let minY = Infinity, maxY = -Infinity;
-            let minZ = Infinity, maxZ = -Infinity;
-
-            for (let i = 0; i < positions.length; i += 3) {
-                let x = positions[i], y = positions[i+1], z = positions[i+2];
-                if (x < minX) minX = x; if (x > maxX) maxX = x;
-                if (y < minY) minY = y; if (y > maxY) maxY = y;
-                if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-            }
-
-            let cx = (minX + maxX) / 2;
-            let cy = (minY + maxY) / 2;
-            let cz = (minZ + maxZ) / 2;
-
-            let centered = new Float32Array(positions.length);
-            for (let i = 0; i < positions.length; i += 3) {
-                centered[i]   = positions[i] - cx;
-                centered[i+1] = positions[i+1] - cy;
-                centered[i+2] = positions[i+2] - cz;
-            }
-            return centered;
-        }
-
-        function updatePointCloud(positions, colors) {
-            if (pointCloudObject) {
-                scene.remove(pointCloudObject);
-                pointCloudObject.geometry.dispose();
-                pointCloudObject.material.dispose();
-                pointCloudObject = null;
-            }
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-
-            let materialConfig = { size: 0.045, transparent: true, opacity: 0.95 };
-            if (colors && colors.length > 0) {
-                geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-                materialConfig.vertexColors = true;
-            } else {
-                materialConfig.color = 0x60a5fa;
-            }
-
-            pointCloudObject = new THREE.Points(geometry, new THREE.PointsMaterial(materialConfig));
-            pointCloudObject.rotation.y = Math.PI; 
-            scene.add(pointCloudObject);
-        }
-
-        function appendChat(text, sender = "") {
-            const chatContainer = document.getElementById('chat-container');
-            if (!chatContainer) return;
-            const msg = document.createElement('div');
-            msg.className = `chat-message ${sender}`;
-            msg.innerText = text;
-            chatContainer.appendChild(msg);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        function sendChatMessage() {
-            const input = document.getElementById('chat-input');
-            if (!input) return;
-            const text = input.value.trim();
-            if (!text) return;
-            appendChat(text);
-            input.value = "";
-            setTimeout(() => {
-                const count = document.getElementById('node-counter')?.innerText || 0;
-                appendChat(`Spatial AI: Active viewport contains ${count} rendered 3D spatial points.`, "system");
-            }, 500);
-        }
-
-        function handleKeyPress(e) { if (e.key === 'Enter') sendChatMessage(); }
-    </script>
+    // ─────────────────────────────────────────────
+    // Chat
+    // ─────────────────────────────────────────────
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+        appendChat(text);
+        input.value = '';
+        setTimeout(() => {
+            const count = document.getElementById('node-counter').innerText;
+            appendChat(`Spatial AI: Current map contains ${count} points.`, 'system');
+        }, 400);
+    }
+    function handleKeyPress(e) { if (e.key === 'Enter') sendChatMessage(); }
+</script>
 </body>
 </html>
