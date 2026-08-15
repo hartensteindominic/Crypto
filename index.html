@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HyperStream4D • Spatial Mapping Processor</title>
+<title>HyperStream4D • Enhanced Spatial Mapping Processor v2</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#030712;color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;height:100vh;display:flex;overflow:hidden}
@@ -29,29 +29,26 @@ button.primary-btn:hover{background:#4338ca}
 button.danger-btn{background:#dc2626;color:#fff;border:none;padding:8px;border-radius:8px;font-weight:700;cursor:pointer;font-size:11px;width:100%}
 button.danger-btn.scanning{background:#ea580c} button.secondary-btn{background:#334155;color:#f1f5f9;border:none;padding:8px;border-radius:8px;font-weight:600;cursor:pointer;font-size:11px}
 #viewer-container{flex:1;position:relative;background:radial-gradient(circle at center,#0f172a 0%,#030712 100%)}
-canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;bottom:20px;left:20px;width:140px;height:105px;border:2px solid #334155;border-radius:8px;object-fit:cover;transform:scaleX(-1);background:#000;z-index:5}
+canvas{display:block;width:100%;height:100%}
 .stats-overlay{position:absolute;top:16px;right:16px;background:rgba(3,7,18,.85);backdrop-filter:blur(8px);padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.08);font-size:11px;color:#94a3b8}
 .stats-overlay span{color:#818cf8;font-weight:700}.progress-bar{height:3px;background:#1e293b;border-radius:1.5px;overflow:hidden;margin-top:3px}.progress-fill{height:100%;background:#818cf8;width:0%;transition:width.2s}
 .vault-item{display:flex;justify-content:space-between;align-items:center;background:#1e293b;padding:5px 7px;border-radius:6px;font-size:11px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 </head>
 <body>
 <div id="sidebar">
-<div class="brand">SPATIAL MAPPING PROCESSOR<br><span>HYPERSTREAM 4D VOLUMETRICS</span></div>
+<div class="brand">SPATIAL MAPPING PROCESSOR<br><span>HYPERSTREAM 4D VOLUMETRICS v2</span></div>
 <div class="action-toggle-row">
 <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
 <button id="btn-tab-paste" class="tab-btn" onclick="switchInputMode('paste')">📋 Paste Data</button>
-<button id="btn-tab-scan" class="tab-btn" onclick="switchInputMode('scan')">👤 Live Map</button>
 </div>
 <div id="panel-file" class="section-card">
 <div class="card-title">HyperStream4D Input</div>
 <div id="drop-zone" class="upload-section" onclick="document.getElementById('file-input').click()">
-<span class="upload-label">Drop Condensed HyperStream Payload<br><small style="opacity:.6">Strict format: { HyperStream4D: [...] }</small></span>
+<span class="upload-label">Drop Condensed HyperStream Payload<br><small style="opacity:.6">Format: { HyperStream4D: [...] }</small></span>
 <input type="file" id="file-input" accept=".json" onchange="handleFileUpload(event)">
 </div>
 <div style="display:flex;gap:6px"><button class="secondary-btn" style="flex:1" onclick="clearScene()">Clear Engine</button><button class="secondary-btn" style="flex:1" onclick="loadVaultList()">Core Vault</button></div>
@@ -60,11 +57,6 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 <div class="card-title">Paste HyperStream4D Node</div>
 <textarea id="json-paste-box" placeholder='Paste payload: {"HyperStream4D":[{"v":[...],"c":[...]}]}'></textarea>
 <button class="primary-btn" onclick="handleCodePaste()">Process Data Core</button>
-</div>
-<div id="panel-scan" class="section-card" style="display:none">
-<div class="card-title">Live Spatial 4D Recording</div>
-<button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">RECORD HYPERSTREAM</button>
-<button class="primary-btn" onclick="exportScannedMap()" style="background:#059669;">Export Condensed Data</button>
 </div>
 <div class="section-card">
 <div class="card-title">Volumetric & Temporal Controls</div>
@@ -96,23 +88,21 @@ canvas{display:block;width:100%;height:100%} #webcam-preview{position:absolute;b
 </div>
 <div class="section-card" style="flex:1">
 <div class="card-title">Systems Console</div>
-<div id="chat-container"><div class="chat-message system">HyperStream4D pipeline initialized. Awaiting condensed nodes.</div></div>
+<div id="chat-container"><div class="chat-message system">HyperStream4D v2 mapping pipeline active.</div></div>
 <div style="display:flex;gap:6px;margin-top:2px"><input type="text" id="chat-input" placeholder="Query Matrix..." onkeypress="handleKeyPress(event)"><button class="primary-btn" onclick="sendChatMessage()">Send</button></div>
 </div>
 </div>
 <div id="viewer-container">
 <div class="stats-overlay">Status: <span id="render-status">Awaiting HyperStream</span><br><span id="bbox-info" style="font-size:10px;color:#64748b"></span></div>
-<video id="webcam-video" autoplay playsinline muted style="display:none"></video>
-<video id="webcam-preview" autoplay playsinline muted></video>
 <canvas id="three-canvas"></canvas>
 </div>
 <script>
-let scene,camera,renderer,controls,gridHelper,spatialObject=null,faceMesh=null,cameraUtils=null;
-let isFaceScanning=false,liveVertices=[],liveColors=[],currentDepthScale=12,currentFPS=18,lastFrameTime=0;
-let is4DPlayMode=true,playbackFrames=[],playbackFrameIndex=0,recorded4DSequence=[],mediaRecorder,recordedChunks=[];
+let scene,camera,renderer,controls,gridHelper,spatialObject=null;
+let currentDepthScale=12,currentFPS=18,lastFrameTime=0;
+let is4DPlayMode=true,playbackFrames=[],playbackFrameIndex=0,mediaRecorder,recordedChunks=[];
 let raw4DSourceFrames=[];
 let currentRenderMode = 'solid';
-const VAULT_KEY='hyperstream_4d_vault_v1';
+const VAULT_KEY='hyperstream_4d_vault_v2';
 
 window.addEventListener('DOMContentLoaded',()=>{init3D();setupDragDrop();loadVaultList()});
 
@@ -129,7 +119,7 @@ scene.add(new THREE.AmbientLight(0xffffff,0.7));
 const d1=new THREE.DirectionalLight(0xffffff,1.0); d1.position.set(2,4,5); scene.add(d1);
 const d2=new THREE.DirectionalLight(0x818cf8,0.5); d2.position.set(-5,-2,-3); scene.add(d2);
 
-window.addEventListener('resize',onWindowResize); initFaceMeshPipeline(); animate();
+window.addEventListener('resize',onWindowResize); animate();
 }
 
 function animate(now){
@@ -146,7 +136,7 @@ if(renderer&&scene&&camera)renderer.render(scene,camera);
 }
 
 function onWindowResize(){const c=document.getElementById('viewer-container'); if(!c||!camera||!renderer)return; camera.aspect=c.clientWidth/c.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(c.clientWidth,c.clientHeight)}
-function switchInputMode(m){['file','paste','scan'].forEach(x=>{document.getElementById('btn-tab-'+x)?.classList.remove('active'); document.getElementById('panel-'+x).style.display='none'}); document.getElementById('btn-tab-'+m)?.classList.add('active'); document.getElementById('panel-'+m).style.display='flex'}
+function switchInputMode(m){['file','paste'].forEach(x=>{document.getElementById('btn-tab-'+x)?.classList.remove('active'); document.getElementById('panel-'+x).style.display='none'}); document.getElementById('btn-tab-'+m)?.classList.add('active'); document.getElementById('panel-'+m).style.display='flex'}
 function setProgress(p){document.getElementById('progress-fill').style.width=Math.min(100,Math.max(0,p))+'%'}
 function appendChat(t,s=''){const b=document.getElementById('chat-container'); const d=document.createElement('div'); d.className='chat-message '+s; d.innerText=t; b.appendChild(d); b.scrollTop=b.scrollHeight}
 function clearScene(){is4DPlayMode=false; playbackFrames=[]; playbackFrameIndex=0; raw4DSourceFrames=[]; if(spatialObject){scene.remove(spatialObject); spatialObject.geometry.dispose(); spatialObject.material.dispose(); spatialObject=null} document.getElementById('node-counter').innerText='0'; document.getElementById('render-status').innerText='Matrix Cleared'; document.getElementById('bbox-info').innerText=''; setProgress(0)}
@@ -169,24 +159,14 @@ function toNumberArray(arr){
  if(!arr) return []; const out=[]; for(let i=0;i<arr.length;i++){const n=parseFloat(arr[i]); if(isFinite(n)) out.push(n);} return out;
 }
 
-// STRICT PARSER: ONLY ACCEPTS CONDENSED DATA
 function extract4DSequence(data){
  if(!data) return null;
- 
- if(data.sequence || data.frames || data.metadata?.axes) {
-     throw new Error("Legacy verbose formatting detected and strictly rejected. The engine now only accepts condensed HyperStream4D matrices.");
- }
-
- // Looks for the cool-named properties or falls back to raw condensed arrays
  let raw = data.HyperStream4D || data.hyperStream || data.condensedNodes || (Array.isArray(data) ? data : null);
  if(!raw) return null;
- 
  return raw.map(f=>{
-  // Strict matching for ultra-condensed v/c mapping
   let v = f.v || f.vertices || [];
   let c = f.c || f.colors || [];
-  v = toNumberArray(v); c = toNumberArray(c);
-  return {vertices4D: v, colors: c};
+  return {vertices4D: toNumberArray(v), colors: toNumberArray(c)};
  }).filter(f=>f.vertices4D.length > 0);
 }
 
@@ -263,7 +243,7 @@ function apply4DFrameAndRender(frameIdx){
 
 function processEnvironmentData(data){
  try{
-  setProgress(10); appendChat('Injecting HyperStream matrix into rendering engine...','system');
+  setProgress(10); appendChat('Injecting 4D video stream matrix...','system');
   const seq = extract4DSequence(data);
   if(seq && seq.length > 0){
    raw4DSourceFrames = seq;
@@ -279,11 +259,11 @@ function processEnvironmentData(data){
    setProgress(100); 
    document.getElementById('render-status').innerText='HyperStream4D Active'; 
    document.getElementById('bbox-info').innerText=`${seq.length} temporal sequences`;
-   appendChat(`✓ Data injection successful. ${seq.length} nodes parsed.`,'system'); 
+   appendChat(`✓ Stream playback ready. Parsed ${seq.length} frames.`,'system'); 
    if(seq.length < 150) saveToVault(`CORE_4D_${Date.now()}`,{HyperStream4D:seq.map(s=>({v:s.vertices4D, c:s.colors}))}); 
    return;
   }
-  appendChat('Unrecognized payload format. HyperStream core requires condensed node mapping.','error'); setProgress(0);
+  appendChat('Unrecognized payload format.','error'); setProgress(0);
  }catch(e){appendChat('Matrix Parsing Error: '+e.message,'error'); setProgress(0); console.error(e)}
 }
 
@@ -292,114 +272,23 @@ function readFile(file){const r=new FileReader(); r.onload=ev=>{try{processEnvir
 function handleFileUpload(e){const f=e.target.files[0]; if(f) readFile(f)} 
 function handleCodePaste(){const t=document.getElementById('json-paste-box').value.trim(); if(!t)return; try{processEnvironmentData(JSON.parse(t))}catch(err){appendChat('Corrupt paste syntax: '+err.message,'error')}}
 
-function saveToVault(name,payload){try{const raw=JSON.stringify(payload); if(raw.length>4500000){appendChat('Vault bypass >4.5MB','error'); return;} const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); vault.unshift({id:Date.now(),name,size:raw.length,payload}); if(vault.length>12) vault.pop(); localStorage.setItem(VAULT_KEY,JSON.stringify(vault)); loadVaultList()}catch(e){appendChat('Vault err '+e.message,'error')}}
+function saveToVault(name,payload){try{const raw=JSON.stringify(payload); if(raw.length>4500000){appendChat('Vault bypass >4.5MB','error'); return;} const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); vault.unshift({id:Date.now(),name,size:raw.length,payload}); if(vault.length>12) vault.pop(); localStorage.setItem(VAULT_KEY,JSON.stringify(vault)); loadVaultList()}catch(e){}}
 function loadVaultList(){try{const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); const list=document.getElementById('vault-list'); if(vault.length===0){list.innerHTML='<small style="color:#64748b">Empty</small>'; return;} list.innerHTML=''; vault.forEach(it=>{const d=document.createElement('div'); d.className='vault-item'; d.innerHTML=`<span>📦 ${it.name} <small style="color:#64748b">${(it.size/1024).toFixed(0)}KB</small></span><span><button onclick="loadFromVault(${it.id})" style="background:#4f46e5;color:#fff;border:none;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:10px;margin-right:4px">Boot</button><button onclick="deleteFromVault(${it.id})" style="background:#334155;color:#fff;border:none;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:10px">X</button></span>`; list.appendChild(d)})}catch(e){}}
 function loadFromVault(id){try{const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); const it=vault.find(v=>v.id===id); if(it) processEnvironmentData(it.payload)}catch(e){}} 
 function deleteFromVault(id){let vault=JSON.parse(localStorage.getItem(VAULT_KEY)||'[]'); vault=vault.filter(v=>v.id!==id); localStorage.setItem(VAULT_KEY,JSON.stringify(vault)); loadVaultList()}
 
-function initFaceMeshPipeline(){
- const video=document.getElementById('webcam-video'); const preview=document.getElementById('webcam-preview'); if(typeof FaceMesh==='undefined')return;
- faceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`}); 
- faceMesh.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.65,minTrackingConfidence:0.65});
- 
- faceMesh.onResults(r=>{
-   if(!isFaceScanning) return; 
-   if(r.multiFaceLandmarks?.length > 0){
-     const lm = r.multiFaceLandmarks[0]; 
-     liveVertices = []; 
-     liveColors = []; 
-     const tVal = recorded4DSequence.length; 
-     
-     for(const pt of lm){
-       const x = (pt.x - 0.5) * -3.2;
-       const y = (pt.y - 0.5) * -3.2;
-       const z = (pt.z || 0) * currentDepthScale; 
-       liveVertices.push(x, y, z, tVal);
-       liveColors.push(0.85, 0.68, 0.55);
-     }
-     
-     recorded4DSequence.push({ vertices4D: [...liveVertices], colors: [...liveColors] });
-     
-     raw4DSourceFrames = recorded4DSequence;
-     playbackFrames = recorded4DSequence;
-     playbackFrameIndex = recorded4DSequence.length - 1;
-     
-     const scrub = document.getElementById('t-scrub-range');
-     if(scrub){
-       scrub.max = Math.max(0, recorded4DSequence.length - 1);
-       scrub.value = playbackFrameIndex;
-     }
-     document.getElementById('t-scrub-val').innerText = `${playbackFrameIndex} / ${playbackFrames.length - 1}`;
-     
-     apply4DFrameAndRender(playbackFrameIndex);
-     document.getElementById('render-status').innerText = `Live HyperStream Mapping (${recorded4DSequence.length} nodes)`;
-   }
- });
- 
- navigator.mediaDevices?.getUserMedia({video:{width:640,height:480}}).then(s=>{
-   if(preview) preview.srcObject=s; 
-   if(video){
-     video.srcObject=s; 
-     if(typeof Camera!=='undefined'){
-       cameraUtils=new Camera(video,{
-         onFrame:async()=>{if(isFaceScanning) await faceMesh.send({image:video})},
-         width:640,
-         height:480
-       }); 
-       cameraUtils.start();
-     }
-   }
- }).catch(()=>appendChat('Webcam bridge offline','error'));
-}
-
-function toggleFaceScanning(){
-  isFaceScanning=!isFaceScanning; 
-  const b=document.getElementById('scan-toggle-btn'); 
-  if(isFaceScanning){
-    recorded4DSequence=[]; 
-    is4DPlayMode=false; 
-    b.innerText='HALT & COMPILE'; 
-    b.classList.add('scanning'); 
-    appendChat('Initializing HyperStream live mapping sequence...','system');
-  } else {
-    b.innerText='RECORD HYPERSTREAM'; 
-    b.classList.remove('scanning'); 
-    is4DPlayMode=true;
-    appendChat(`✓ Data compiled successfully with ${recorded4DSequence.length} matrix sequences.`,'system');
-  }
-}
-
-function exportScannedMap(){
-    if(recorded4DSequence.length===0){alert('No matrix data mapped.');return;} 
-    
-    // Convert to strictly condensed HyperStream4D format before exporting
-    const condensedStream = recorded4DSequence.map(f => ({
-        v: f.vertices4D.map(n => Number(n.toFixed(4))),
-        c: f.colors.map(n => Number(n.toFixed(2)))
-    }));
-
-    const payload = { HyperStream4D: condensedStream }; 
-    const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}); 
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); 
-    a.download=`hyperstream_node_${Date.now()}.json`; a.click(); 
-    setTimeout(()=>URL.revokeObjectURL(a.href),1000); 
-    saveToVault(`HS_Export_${Date.now()}`,payload);
-}
-
-function exportCurrentPNG(){if(!spatialObject){appendChat('No map rendered','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`hyperstream_snap_${Date.now()}.png`; a.click(); appendChat('High-res matrix snapshot exported','system')}
-function export4DPhotoGIF(){if(!spatialObject){appendChat('No map model','error');return;} appendChat('Rendering 360 orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hyperstream_orbit_${Date.now()}.gif`; a.click(); appendChat('Orbit render complete','system')}); gif.render()}} cap()}
+function exportCurrentPNG(){if(!spatialObject){appendChat('No map rendered','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`hyperstream_snap_${Date.now()}.png`; a.click(); appendChat('High-res snapshot exported','system')}
+function export4DPhotoGIF(){if(!spatialObject){appendChat('No map model','error');return;} appendChat('Rendering orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`hyperstream_orbit_${Date.now()}.gif`; a.click(); appendChat('Orbit render complete','system')}); gif.render()}} cap()}
 
 function export4DWebMVideo(){
     if(!renderer || !spatialObject){
         appendChat('No active playback stream to encode.', 'error');
         return;
     }
-
     appendChat('Compiling stream multiplex (.webm)...', 'system');
     recordedChunks = [];
     const canvas = document.getElementById('three-canvas');
     const stream = canvas.captureStream(30); 
-    
     try {
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
     } catch (e) {
@@ -410,13 +299,11 @@ function export4DWebMVideo(){
             return;
         }
     }
-
     mediaRecorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
             recordedChunks.push(event.data);
         }
     };
-
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
@@ -427,16 +314,13 @@ function export4DWebMVideo(){
         setTimeout(() => URL.revokeObjectURL(url), 2000);
         appendChat('✓ Sequence exported successfully!', 'system');
     };
-
     mediaRecorder.start();
     let frameCounter = 0;
     const totalFrames = Math.max(90, playbackFrames.length);
     const originalPos = camera.position.clone();
-
     function recordVideoLoop(){
         frameCounter++;
         renderer.render(scene, camera);
-
         if(frameCounter < totalFrames){
             requestAnimationFrame(recordVideoLoop);
         } else {
