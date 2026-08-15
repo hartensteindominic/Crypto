@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial 3D Map Processor – Enterprise Layer Edition</title>
+    <title>Spatial 3D Map Processor – Enterprise 4D Layer Edition</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -102,7 +102,7 @@
 <body>
 
 <div id="sidebar">
-    <div class="brand">SPATIAL 3D PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">Enterprise Layer Edition</span></div>
+    <div class="brand">SPATIAL 3D PROCESSOR<br><span style="font-size:10px;font-weight:500;color:#7dd3fc;">Enterprise 4D Layer Edition</span></div>
     
     <div class="action-toggle-row">
         <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
@@ -113,7 +113,7 @@
     <div id="panel-file" class="section-card input-panel">
         <div class="card-title">Data Input</div>
         <div class="upload-section" onclick="document.getElementById('file-input').click()">
-            <span class="upload-label">Drop JSON Dataset<br><small style="opacity:0.6">Supports Multi-Schema Maps</small></span>
+            <span class="upload-label">Drop JSON / 4D Dataset<br><small style="opacity:0.6">Supports Multi-Schema Maps & Sequences</small></span>
             <input type="file" id="file-input" accept=".json,application/json" onchange="handleFileUpload(event)">
         </div>
         <button class="secondary-btn" onclick="clearScene()">Clear Environment</button>
@@ -121,13 +121,13 @@
 
     <div id="panel-paste" class="section-card input-panel" style="display:none;">
         <div class="card-title">JSON Buffer</div>
-        <textarea id="json-paste-box" placeholder="Paste Geometry JSON here..."></textarea>
-        <button class="primary-btn" onclick="handleCodePaste()">Load Pasted JSON</button>
+        <textarea id="json-paste-box" placeholder="Paste Geometry JSON or 4D Sequence here..."></textarea>
+        <button class="primary-btn" onclick="handleCodePaste()">Load Pasted Dataset</button>
     </div>
 
     <div id="panel-scan" class="section-card input-panel" style="display:none;">
-        <div class="card-title">Live 3D Capture</div>
-        <button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">START FACE SCAN</button>
+        <div class="card-title">Live 4D Recording</div>
+        <button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">RECORD 4D STREAM</button>
         <button class="primary-btn" onclick="exportScannedMap()" style="background:#059669;">Export Map JSON</button>
     </div>
 
@@ -158,7 +158,7 @@
     <div class="section-card" style="flex:1;">
         <div class="card-title">System Console</div>
         <div id="chat-container">
-            <div class="chat-message system">System initialized. Ready for layer mapping sequence.</div>
+            <div class="chat-message system">System initialized. Ready for 4D volumetric mapping sequence.</div>
         </div>
         <div class="chat-input-row" style="margin-top:4px;">
             <input type="text" id="chat-input" placeholder="Query layer parameters..." onkeypress="handleKeyPress(event)">
@@ -182,7 +182,14 @@
     let pointCloudObject = null;
     let faceMesh = null, cameraUtils = null;
     let isFaceScanning = false;
-    let liveVertices = [], liveColors = [], liveIntensity = [];
+    let liveVertices = [], liveColors = [];
+    
+    // 4D Timeline Sequence State
+    let is4DPlayMode = false;
+    let playbackFrames = [];
+    let playbackFrameIndex = 0;
+    let recorded4DSequence = [];
+    let recordingTimer = null;
 
     window.addEventListener('DOMContentLoaded', () => {
         try { init3D(); } catch (err) { console.error(err); }
@@ -225,6 +232,22 @@
     function animate() {
         requestAnimationFrame(animate);
         if (controls) controls.update();
+
+        // 4D Timeline playback loop implementation
+        if (is4DPlayMode && playbackFrames.length > 0) {
+            const frame = playbackFrames[playbackFrameIndex];
+            if (pointCloudObject && pointCloudObject.geometry) {
+                pointCloudObject.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(frame.vertices), 3));
+                if (frame.colors && frame.colors.length === frame.vertices.length) {
+                    pointCloudObject.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(frame.colors), 3));
+                }
+                pointCloudObject.geometry.attributes.position.needsUpdate = true;
+                if (pointCloudObject.geometry.attributes.color) pointCloudObject.geometry.attributes.color.needsUpdate = true;
+                document.getElementById('node-counter').innerText = (frame.vertices.length / 3).toLocaleString();
+            }
+            playbackFrameIndex = (playbackFrameIndex + 1) % playbackFrames.length;
+        }
+
         if (renderer && scene && camera) renderer.render(scene, camera);
     }
 
@@ -259,6 +282,9 @@
     }
 
     function clearScene() {
+        is4DPlayMode = false;
+        playbackFrames = [];
+        recorded4DSequence = [];
         if (pointCloudObject) {
             scene.remove(pointCloudObject);
             pointCloudObject.geometry.dispose();
@@ -269,7 +295,7 @@
         document.getElementById('render-status').innerText = 'Scene cleared';
         document.getElementById('bbox-info').innerText = '';
         setProgress(0);
-        appendChat('Environment buffer cleared.', 'system');
+        appendChat('Environment buffer and 4D timeline cleared.', 'system');
     }
 
     function updatePointSize(val) {
@@ -284,6 +310,30 @@
         setProgress(10);
         appendChat('Analyzing layout coordinates & layer properties...', 'system');
 
+        // Check if input is a 4D sequence dataset
+        if (data && Array.isArray(data.sequence) && data.sequence.length > 0) {
+            is4DPlayMode = true;
+            playbackFrames = data.sequence;
+            playbackFrameIndex = 0;
+            setProgress(50);
+            
+            // Initialize base point cloud geometry with first frame
+            const firstFrame = playbackFrames[0];
+            const positions = new Float32Array(firstFrame.vertices);
+            const colors = firstFrame.colors ? new Float32Array(firstFrame.colors) : null;
+            
+            const { centered, bbox } = centerAndNormalize(positions);
+            // Re-map sequence frames to centered layout if needed or use directly
+            updatePointCloud(centered, colors, bbox);
+            
+            setProgress(100);
+            document.getElementById('render-status').innerText = '4D Sequence Playing';
+            document.getElementById('bbox-info').innerText = `Frames: ${playbackFrames.length} Timeline Active`;
+            appendChat(`Successfully loaded 4D sequence timeline (${playbackFrames.length} frames).`, 'system');
+            return;
+        }
+
+        is4DPlayMode = false;
         let rawPositions = null, rawColors = null;
         const extractAttributes = (obj) => {
             if (!obj) return;
@@ -371,10 +421,12 @@
         pointCloudObject.rotation.y = Math.PI;
         scene.add(pointCloudObject);
 
-        const maxSize = Math.max(bbox.sizeX, bbox.sizeY, bbox.sizeZ);
-        camera.position.set(0, maxSize * 0.4, maxSize * 1.5);
-        controls.target.set(0, 0, 0);
-        controls.update();
+        if (bbox) {
+            const maxSize = Math.max(bbox.sizeX, bbox.sizeY, bbox.sizeZ);
+            camera.position.set(0, maxSize * 0.4, maxSize * 1.5);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
     }
 
     function handleFileUpload(e) {
@@ -413,9 +465,18 @@
                     liveVertices.push(x, y, z);
                     liveColors.push(Math.abs(x)*0.4 + 0.2, 0.6, 1.0 - Math.abs(z)*0.4);
                 }
+                
+                // If recording 4D stream, capture frame into sequence buffer
+                if (recorded4DSequence) {
+                    recorded4DSequence.push({
+                        vertices: [...liveVertices],
+                        colors: [...liveColors]
+                    });
+                }
+
                 updatePointCloud(new Float32Array(liveVertices), new Float32Array(liveColors), { sizeX: 3, sizeY: 3, sizeZ: 2 });
-                document.getElementById('node-counter').innerText = (liveVertices.length / 3).toFixed(0);
-                document.getElementById('render-status').innerText = 'Live Mesh Active';
+                document.getElementById('node-counter').innerText = (liveVertices.length / 3).toLocaleString();
+                document.getElementById('render-status').innerText = isFaceScanning ? 'Recording 4D Stream...' : 'Live Mesh Active';
             }
         });
 
@@ -434,25 +495,45 @@
         isFaceScanning = !isFaceScanning;
         const btn = document.getElementById('scan-toggle-btn');
         if (isFaceScanning) {
-            btn.innerText = 'STOP FACE SCAN'; btn.classList.add('scanning');
-            appendChat('Facial layer scanner active.', 'system');
+            recorded4DSequence = [];
+            is4DPlayMode = false;
+            btn.innerText = 'STOP & SAVE 4D STREAM'; 
+            btn.classList.add('scanning');
+            appendChat('Facial 4D volumetric stream recording active...', 'system');
         } else {
-            btn.innerText = 'START FACE SCAN'; btn.classList.remove('scanning');
-            appendChat('Facial mapping halted.', 'system');
+            btn.innerText = 'RECORD 4D STREAM'; 
+            btn.classList.remove('scanning');
+            appendChat(`4D Stream captured (${recorded4DSequence.length} frames).`, 'system');
+            
+            // Automatically switch viewer to play back the recorded 4D sequence!
+            if (recorded4DSequence.length > 0) {
+                processEnvironmentData({ sequence: recorded4DSequence });
+            }
         }
     }
 
     function exportScannedMap() {
-        if (liveVertices.length === 0) { alert('No tracking topology found.'); return; }
-        const payload = {
-            metadata: { generator: 'Spatial Layer Processor', version: '3.0' },
-            data: { attributes: { position: { itemSize: 3, array: liveVertices }, color: { itemSize: 3, array: liveColors } } }
-        };
+        if (liveVertices.length === 0 && recorded4DSequence.length === 0) { alert('No tracking topology found.'); return; }
+        
+        let payload;
+        if (recorded4DSequence.length > 0) {
+            payload = {
+                metadata: { generator: 'Spatial 4D Sequence Processor', version: '4.0', totalFrames: recorded4DSequence.length },
+                sequence: recorded4DSequence
+            };
+        } else {
+            payload = {
+                metadata: { generator: 'Spatial Layer Processor', version: '3.0' },
+                data: { attributes: { position: { itemSize: 3, array: liveVertices }, color: { itemSize: 3, array: liveColors } } }
+            };
+        }
+
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `spatial_layer_${Date.now()}.json`;
+        a.download = `spatial_4d_sequence_${Date.now()}.json`;
         a.click();
+        appendChat('Exported 4D JSON dataset successfully.', 'system');
     }
 
     function export4DPhotoGIF() {
