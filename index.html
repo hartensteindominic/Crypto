@@ -2,191 +2,242 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial Dash Pro – Condensed 4D Map Engine</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Spatial Dash Pro - Condensed 4D Volumetric Map Scanner</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #030712; color: #f3f4f6; font-family: system-ui, sans-serif; height: 100vh; display: flex; overflow: hidden; }
-        #sidebar { width: 380px; background: #0b0f19; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 16px; gap: 12px; z-index: 10; overflow-y: auto; }
-        .brand { font-size: 14px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; }
-        .card { background: rgba(17, 24, 39, 0.7); border: 1px solid #1f2937; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-        .title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; }
-        .btn-row { display: flex; gap: 6px; }
-        button { flex: 1; padding: 8px; border-radius: 8px; border: none; font-weight: 600; font-size: 11px; cursor: pointer; transition: 0.2s; }
-        .primary { background: #0284c7; color: white; }
-        .primary:hover { background: #0369a1; }
-        .danger { background: #dc2626; color: white; }
-        .danger.active { background: #ea580c; }
-        .secondary { background: #334155; color: #f1f5f9; }
-        textarea { width: 100%; height: 60px; background: #1e293b; border: 1px solid #334155; padding: 6px; border-radius: 6px; color: #fff; font-family: monospace; font-size: 10px; resize: none; }
-        #viewer { flex: 1; position: relative; background: #030712; }
-        canvas { display: block; width: 100%; height: 100%; }
-        .overlay { position: absolute; top: 12px; right: 12px; background: rgba(3, 7, 18, 0.85); padding: 8px 12px; border-radius: 6px; font-size: 11px; color: #94a3b8; border: 1px solid rgba(255,255,255,0.08); }
-        .overlay span { color: #38bdf8; font-weight: bold; }
+        body { background: #030303; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
+        #camera-stream, #processing-canvas, #render-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        #processing-canvas { display: none; }
+        #render-container { display: none; z-index: 2; }
+        #camera-stream.front-facing { transform: scaleX(-1); }
+        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; pointer-events: none; }
+        .interactive { pointer-events: auto; }
+        .hud-header, .hud-footer { background: rgba(15, 15, 15, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(12px); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .btn-primary { background: #0a84ff; border: none; }
+        .btn-danger { background: #ff453a; border: none; }
+        .btn-success { background: #30d158; border: none; }
+        .metrics { display: flex; gap: 12px; font-size: 11px; color: #888; }
+        .metrics span { color: #0a84ff; font-weight: 700; }
+        #modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(6px); z-index: 10; display: none; justify-content: center; align-items: center; padding: 16px; }
+        .modal-box { background: #151515; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 16px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+        .modal-box textarea { width: 100%; height: 120px; background: #0a0a0a; color: #0a84ff; border: 1px solid #333; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 10px; resize: none; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-<div id="sidebar">
-    <div class="brand">SPATIAL MAP PROCESSOR<br><span style="font-size:9px;color:#7dd3fc;">Condensed 4D Engine</span></div>
-    
-    <div class="card">
-        <div class="title">Stream Control</div>
-        <div class="btn-row">
-            <button id="record-btn" class="danger" onclick="toggleScanning()">Record Stream</button>
-            <button class="secondary" onclick="exportMapJSON()">Export Map</button>
+    <video id="camera-stream" autoplay playsinline muted></video>
+    <canvas id="processing-canvas"></canvas>
+    <div id="render-container"></div>
+
+    <div id="modal" class="interactive">
+        <div class="modal-box">
+            <h3 id="modal-title" style="font-size:13px;">3D Map Payload</h3>
+            <textarea id="modal-text" placeholder="Paste or view JSON here..."></textarea>
+            <div style="display:flex; gap:6px;">
+                <button id="modal-action-btn" class="btn btn-primary" style="flex:1;" onclick="modalAction()">Copy / Process</button>
+                <button class="btn" style="background:#333;" onclick="toggleModal(false)">Close</button>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="title">JSON Buffer Input</div>
-        <textarea id="json-input" placeholder="Paste 3D Map / Sequence JSON payload..."></textarea>
-        <button class="primary" onclick="parseAndLoadJSON()">Load Structured Payload</button>
-    </div>
+    <div id="hud">
+        <div class="hud-header interactive">
+            <div style="font-weight:800; font-size:12px; letter-spacing:1px;">SPATIAL 4D</div>
+            <div style="display:flex; gap:6px;">
+                <button class="btn" onclick="switchCamera()">📷 Flip</button>
+                <label class="btn">📁 Load<input type="file" id="file-input" accept=".json" onchange="loadFile(event)" style="display:none;"></label>
+                <button class="btn" onclick="openModal('paste')">📋 Paste</button>
+            </div>
+        </div>
 
-    <div class="card" style="flex:1;">
-        <div class="title">Telemetry</div>
-        <div style="font-size:11px; color:#cbd5e1;">
-            Active Nodes: <span id="node-count">0</span><br>
-            Frames Cached: <span id="frame-count">0</span>
+        <div class="hud-footer interactive">
+            <div class="metrics">
+                <div>Frames: <span id="m-frames">0</span></div>
+                <div>Nodes: <span id="m-nodes">0</span></div>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button id="scan-btn" class="btn btn-primary" onclick="toggleScan()">Record</button>
+                <button id="save-btn" class="btn btn-success" style="display:none;" onclick="openModal('export')">Export</button>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="viewer">
-    <div class="overlay">
-        Status: <span id="status">Ready</span>
-    </div>
-    <video id="webcam" autoplay playsinline muted style="display:none;"></video>
-    <canvas id="canvas"></canvas>
-</div>
+    <script>
+        const video = document.getElementById('camera-stream'),
+              canvas = document.getElementById('processing-canvas'),
+              ctx = canvas.getContext('2d', { willReadFrequently: true }),
+              renderContainer = document.getElementById('render-container');
+              
+        let isScanning = false, frames = [], facing = "environment", stream = null, holistic = null, cameraUtils = null;
+        let scene, camera, renderer, pointCloud, playbackFrames = [], playbackIndex = 0, modalMode = 'export';
 
-<script>
-    let scene, camera, renderer, pointCloud, faceMesh, cameraUtils;
-    let isScanning = false, isPlayback = false;
-    let sequenceBuffer = [], currentFrameIndex = 0;
-
-    window.addEventListener('DOMContentLoaded', () => {
-        init3D();
-        initFaceMesh();
-    });
-
-    function init3D() {
-        const container = document.getElementById('viewer');
-        scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-        camera.position.set(0, 0, 3.5);
-
-        renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-
-        const geometry = new THREE.BufferGeometry();
-        const material = new THREE.PointsMaterial({ size: 0.02, vertexColors: true, transparent: true, opacity: 0.9 });
-        pointCloud = new THREE.Points(geometry, material);
-        scene.add(pointCloud);
-
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        });
-
-        animate();
-    }
-
-    function animate() {
-        requestAnimationFrame(animate);
-        if (isPlayback && sequenceBuffer.length > 0) {
-            let frame = sequenceBuffer[currentFrameIndex];
-            pointCloud.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(frame.vertices), 3));
-            pointCloud.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(frame.colors), 3));
-            pointCloud.geometry.attributes.position.needsUpdate = true;
-            pointCloud.geometry.attributes.color.needsUpdate = true;
-            
-            document.getElementById('node-count').innerText = (frame.vertices.length / 3).toLocaleString();
-            currentFrameIndex = (currentFrameIndex + 1) % sequenceBuffer.length;
+        async function initCam() {
+            if (renderContainer.style.display === "block") return;
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } } });
+                video.srcObject = stream;
+                video.classList.toggle("front-facing", facing === "user");
+            } catch (e) { console.error(e); }
         }
-        renderer.render(scene, camera);
-    }
 
-    function initFaceMesh() {
-        const video = document.getElementById('webcam');
-        faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        function switchCamera() {
+            facing = (facing === "environment") ? "user" : "environment";
+            initCam();
+        }
 
-        faceMesh.onResults((results) => {
-            if (!isScanning) return;
-            if (results.multiFaceLandmarks?.length > 0) {
-                let verts = [], colors = [];
-                for (let pt of results.multiFaceLandmarks[0]) {
-                    verts.push((pt.x - 0.5) * -3, (pt.y - 0.5) * -3, (pt.z || 0) * 3);
-                    colors.push(0.1, 0.6, 1.0);
+        function initProcessor() {
+            holistic = new Holistic({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${f}` });
+            holistic.setOptions({ modelComplexity: 1, smoothLandmarks: true, refineFaceLandmarks: true, minDetectionConfidence: 0.5 });
+            holistic.onResults(res => {
+                if (!isScanning || !frames.length) return;
+                let hVerts = [], hCols = [];
+                const add = (l, r, g, b) => { if(l) l.forEach(p => { hVerts.push((p.x-.5)*-5.2, (p.y-.5)*-5.2, (p.z||0)*5.2); hCols.push(r,g,b); }); };
+                add(res.faceLandmarks?.landmark, 0.1, 0.9, 1);
+                add(res.poseLandmarks?.landmark, 0.2, 1, 0.4);
+                add(res.leftHandLandmarks?.landmark, 1, 0.6, 0.1);
+                add(res.rightHandLandmarks?.landmark, 1, 0.2, 0.8);
+                if (hVerts.length) {
+                    let cf = frames[frames.length - 1];
+                    cf.vertices.push(...hVerts); cf.colors.push(...hCols);
+                    document.getElementById('m-nodes').innerText = cf.vertices.length / 3;
                 }
-                sequenceBuffer.push({ vertices: verts, colors: colors });
-                document.getElementById('frame-count').innerText = sequenceBuffer.length;
-                document.getElementById('node-count').innerText = verts.length / 3;
-            }
-        });
-
-        cameraUtils = new Camera(video, {
-            onFrame: async () => { if (isScanning) await faceMesh.send({ image: video }); },
-            width: 640, height: 480
-        });
-        cameraUtils.start();
-    }
-
-    function toggleScanning() {
-        isScanning = !isScanning;
-        isPlayback = false;
-        let btn = document.getElementById('record-btn');
-        if (isScanning) {
-            sequenceBuffer = [];
-            btn.innerText = "Stop Recording";
-            btn.classList.add("active");
-            document.getElementById('status').innerText = "Recording Stream";
-        } else {
-            btn.innerText = "Record Stream";
-            btn.classList.remove("active");
-            document.getElementById('status').innerText = "Captured Ready";
-            if (sequenceBuffer.length > 0) isPlayback = true;
+            });
+            cameraUtils = new Camera(video, {
+                onFrame: async () => { if (isScanning && video) { await holistic.send({ image: video }); captureFrame(); } },
+                width: 1280, height: 720
+            });
+            cameraUtils.start();
         }
-    }
 
-    function parseAndLoadJSON() {
-        let text = document.getElementById('json-input').value.trim();
-        if (!text) return;
-        try {
-            let data = JSON.parse(text);
-            let frames = data.frames ? data.frames.map(f => f.geometryStream) : (data.sequence || []);
-            if (frames.length > 0) {
-                sequenceBuffer = frames;
-                isScanning = false;
-                isPlayback = true;
-                currentFrameIndex = 0;
-                document.getElementById('frame-count').innerText = sequenceBuffer.length;
-                document.getElementById('status').innerText = "Playing Payload";
+        function captureFrame() {
+            if (!video.videoWidth) return;
+            canvas.width = 320; canvas.height = 180;
+            ctx.drawImage(video, 0, 0, 320, 180);
+            const img = ctx.getImageData(0, 0, 320, 180).data;
+            let v = [], c = [];
+            for (let y = 1; y < 179; y += 2) {
+                for (let x = 1; x < 319; x += 2) {
+                    let i = (y * 320 + x) * 4, r = img[i], g = img[i+1], b = img[i+2];
+                    let lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    v.push((x/320 - 0.5)*5.2, -(y/180 - 0.5)*5.2, (lum - 0.5)*3.4);
+                    c.px = r/255; c.push(r/255, g/255, b/255);
+                }
             }
-        } catch (e) {
-            alert("Malformed JSON payload structure.");
+            frames.push({ vertices: v, colors: c });
+            document.getElementById('m-frames').innerText = frames.length;
+            document.getElementById('m-nodes').innerText = v.length / 3;
         }
-    }
 
-    function exportMapJSON() {
-        if (sequenceBuffer.length === 0) { alert("No sequence data cached."); return; }
-        let payload = {
-            version: "2.1",
-            mapType: "CondensedSpatialMap",
-            frames: sequenceBuffer.map((f, i) => ({ frameIndex: i, geometryStream: f }))
-        };
-        let blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-        let a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `spatial_map_${Date.now()}.json`;
-        a.click();
-    }
-</script>
+        function toggleScan() {
+            isScanning = !isScanning;
+            const btn = document.getElementById('scan-btn');
+            btn.innerText = isScanning ? "Stop" : "Record";
+            btn.className = isScanning ? "btn btn-danger" : "btn btn-primary";
+            document.getElementById('save-btn').style.display = isScanning ? "none" : (frames.length ? "block" : "none");
+            if (isScanning) frames = [];
+        }
+
+        function openModal(mode) {
+            modalMode = mode;
+            document.getElementById('modal').style.display = 'flex';
+            const txt = document.getElementById('modal-text');
+            if (mode === 'export') {
+                document.getElementById('modal-title').innerText = "Export 3D Map Payload";
+                txt.value = JSON.stringify({ version: "2.0", frames: frames.map((f, i) => ({ frameIndex: i, geometryStream: f })) });
+                document.getElementById('modal-action-btn').innerText = "Copy Payload";
+            } else {
+                document.getElementById('modal-title').innerText = "Paste 3D Map JSON";
+                txt.value = "";
+                document.getElementById('modal-action-btn').innerText = "Process & Play";
+            }
+        }
+
+        function toggleModal(show) { document.getElementById('modal').style.display = show ? 'flex' : 'none'; }
+
+        function modalAction() {
+            const txt = document.getElementById('modal-text');
+            if (modalMode === 'export') {
+                navigator.clipboard.writeText(txt.value).then(() => {
+                    document.getElementById('modal-action-btn').innerText = "Copied!";
+                    setTimeout(() => toggleModal(false), 1000);
+                });
+            } else {
+                try {
+                    const data = JSON.parse(txt.value);
+                    let seq = data.frames ? data.frames.map(f => f.geometryStream) : (data.sequence || []);
+                    toggleModal(false);
+                    playSequence(seq);
+                } catch(e) { alert("Invalid JSON format"); }
+            }
+        }
+
+        function loadFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    playSequence(data.frames ? data.frames.map(f => f.geometryStream) : (data.sequence || []));
+                } catch(err) { alert("Invalid file format"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function playSequence(seq) {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            video.style.display = 'none';
+            renderContainer.style.display = 'block';
+            playbackFrames = seq;
+            playbackIndex = 0;
+
+            if (!scene) {
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(0, 0, 4);
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderContainer.appendChild(renderer.domElement);
+                scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+                
+                let drag = false, px = 0, py = 0;
+                window.addEventListener('mousedown', e => { drag = true; px = e.clientX; py = e.clientY; });
+                window.addEventListener('mousemove', e => {
+                    if (!drag || !pointCloud) return;
+                    pointCloud.rotation.y += (e.clientX - px) * 0.005;
+                    pointCloud.rotation.x += (e.clientY - py) * 0.005;
+                    px = e.clientX; py = e.clientY;
+                });
+                window.addEventListener('mouseup', () => drag = false);
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            pointCloud = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.022, vertexColors: true, transparent: true, opacity: 0.95 }));
+            scene.add(pointCloud);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                if (playbackFrames.length) {
+                    let f = playbackFrames[playbackIndex];
+                    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(f.vertices), 3));
+                    geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(f.colors), 3));
+                    document.getElementById('m-nodes').innerText = f.vertices.length / 3;
+                    document.getElementById('m-frames').innerText = playbackFrames.length;
+                    playbackIndex = (playbackIndex + 1) % playbackFrames.length;
+                }
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        window.addEventListener('load', () => { initCam(); initProcessor(); });
+    </script>
 </body>
 </html>
