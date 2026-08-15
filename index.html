@@ -156,7 +156,7 @@ function updateRenderMode(m){currentRenderMode = m; if(raw4DSourceFrames.length 
 
 function updateTScrubs(val){
   playbackFrameIndex = parseInt(val);
-  is4DPlayMode = false; // Pause auto playback when manually scrubbing
+  is4DPlayMode = false;
   if(raw4DSourceFrames.length > 0){
     apply4DFrameAndRender(playbackFrameIndex);
     document.getElementById('t-scrub-val').innerText = `${playbackFrameIndex} / ${playbackFrames.length - 1}`;
@@ -291,12 +291,77 @@ function deleteFromVault(id){let vault=JSON.parse(localStorage.getItem(VAULT_KEY
 
 function initFaceMeshPipeline(){
  const video=document.getElementById('webcam-video'); const preview=document.getElementById('webcam-preview'); if(typeof FaceMesh==='undefined')return;
- faceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`}); faceMesh.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.6,minTrackingConfidence:0.6});
- faceMesh.onResults(r=>{if(!isFaceScanning)return; if(r.multiFaceLandmarks?.length>0){const lm=r.multiFaceLandmarks[0]; liveVertices=[]; liveColors=[]; const tVal = recorded4DSequence.length; for(const pt of lm){const x=(pt.x-0.5)*-3.0,y=(pt.y-0.5)*-3.0,z=(pt.z||0)*currentDepthScale; liveVertices.push(x,y,z,tVal); liveColors.push(0.82, 0.65, 0.52);} recorded4DSequence.push({vertices:[...liveVertices],colors:[...liveColors]}); processEnvironmentData({sequence:recorded4DSequence});}});
- navigator.mediaDevices?.getUserMedia({video:{width:640,height:480}}).then(s=>{if(preview)preview.srcObject=s; if(video){video.srcObject=s; if(typeof Camera!=='undefined'){cameraUtils=new Camera(video,{onFrame:async()=>{if(isFaceScanning) await faceMesh.send({image:video})},width:640,height:480}); cameraUtils.start();}}}).catch(()=>appendChat('Webcam denied','error'));
+ faceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`}); 
+ faceMesh.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.65,minTrackingConfidence:0.65});
+ 
+ faceMesh.onResults(r=>{
+   if(!isFaceScanning) return; 
+   if(r.multiFaceLandmarks?.length > 0){
+     const lm = r.multiFaceLandmarks[0]; 
+     liveVertices = []; 
+     liveColors = []; 
+     const tVal = recorded4DSequence.length; 
+     
+     for(const pt of lm){
+       const x = (pt.x - 0.5) * -3.2;
+       const y = (pt.y - 0.5) * -3.2;
+       const z = (pt.z || 0) * currentDepthScale; 
+       liveVertices.push(x, y, z, tVal);
+       liveColors.push(0.85, 0.68, 0.55);
+     }
+     
+     recorded4DSequence.push({ vertices: [...liveVertices], colors: [...liveColors] });
+     
+     // Real-time synchronization upgrade for the spatial mapping processor
+     raw4DSourceFrames = recorded4DSequence;
+     playbackFrames = recorded4DSequence;
+     playbackFrameIndex = recorded4DSequence.length - 1;
+     
+     const scrub = document.getElementById('t-scrub-range');
+     if(scrub){
+       scrub.max = Math.max(0, recorded4DSequence.length - 1);
+       scrub.value = playbackFrameIndex;
+     }
+     document.getElementById('t-scrub-val').innerText = `${playbackFrameIndex} / ${playbackFrames.length - 1}`;
+     
+     apply4DFrameAndRender(playbackFrameIndex);
+     document.getElementById('render-status').innerText = `Live 4D Stream Recording (${recorded4DSequence.length} frames)`;
+   }
+ });
+ 
+ navigator.mediaDevices?.getUserMedia({video:{width:640,height:480}}).then(s=>{
+   if(preview) preview.srcObject=s; 
+   if(video){
+     video.srcObject=s; 
+     if(typeof Camera!=='undefined'){
+       cameraUtils=new Camera(video,{
+         onFrame:async()=>{if(isFaceScanning) await faceMesh.send({image:video})},
+         width:640,
+         height:480
+       }); 
+       cameraUtils.start();
+     }
+   }
+ }).catch(()=>appendChat('Webcam access denied','error'));
 }
 
-function toggleFaceScanning(){isFaceScanning=!isFaceScanning; const b=document.getElementById('scan-toggle-btn'); if(isFaceScanning){recorded4DSequence=[]; is4DPlayMode=false; b.innerText='STOP & PRODUCE'; b.classList.add('scanning'); appendChat('Recording 4D video sequence stream...','system')} else{b.innerText='RECORD 4D STREAM'; b.classList.remove('scanning'); is4DPlayMode=true;}}
+function toggleFaceScanning(){
+  isFaceScanning=!isFaceScanning; 
+  const b=document.getElementById('scan-toggle-btn'); 
+  if(isFaceScanning){
+    recorded4DSequence=[]; 
+    is4DPlayMode=false; 
+    b.innerText='STOP & PRODUCE'; 
+    b.classList.add('scanning'); 
+    appendChat('Recording 4D video sequence stream...','system');
+  } else {
+    b.innerText='RECORD 4D STREAM'; 
+    b.classList.remove('scanning'); 
+    is4DPlayMode=true;
+    appendChat(`✓ Live mapping completed with ${recorded4DSequence.length} temporal frames.`,'system');
+  }
+}
+
 function exportScannedMap(){if(recorded4DSequence.length===0){alert('No data');return;} const payload={metadata:{generator:'4D Volumetric Video Pipeline',version:'4.0-4D',axes:["x","y","z","t"]},sequence:recorded4DSequence}; const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`spatial_4d_video_${Date.now()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); saveToVault(`Export_Video_${Date.now()}`,payload)}
 function exportCurrentPNG(){if(!spatialObject){appendChat('No map rendered','error');return;} renderer.render(scene,camera); const url=document.getElementById('three-canvas').toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download=`4d_video_frame_${Date.now()}.png`; a.click(); appendChat('PNG snapshot exported','system')}
 function export4DPhotoGIF(){if(!spatialObject){appendChat('No map model','error');return;} appendChat('Producing orbit GIF...','system'); const gif=new GIF({workers:2,quality:10,width:640,height:480,workerScript:'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'}); const orig=camera.position.clone(); let f=0; const total=36; const rad=camera.position.distanceTo(controls.target); function cap(){const ang=(f/total)*Math.PI*2; camera.position.x=Math.sin(ang)*rad; camera.position.z=Math.cos(ang)*rad; camera.lookAt(controls.target); renderer.render(scene,camera); const c=document.createElement('canvas'); c.width=640; c.height=480; c.getContext('2d').drawImage(renderer.domElement,0,0,640,480); gif.addFrame(c,{delay:80}); f++; if(f<total) requestAnimationFrame(cap); else{camera.position.copy(orig); controls.update(); gif.on('finished',blob=>{const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`4d_video_orbit_${Date.now()}.gif`; a.click(); appendChat('GIF ready','system')}); gif.render()}} cap()}
