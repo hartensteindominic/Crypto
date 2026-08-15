@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial 3D Map Processor – Omni Compatible Advanced</title>
+    <title>Spatial 3D Map Processor – Omni Compatible Advanced (4D Photo / Video)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -84,15 +84,22 @@
         }
         .progress-fill { height: 100%; background: #60a5fa; width: 0%; transition: width 0.2s; }
     </style>
+
+    <!-- Three.js + Controls -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- MediaPipe Face Mesh -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+    <!-- GIF Encoder -->
+    <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 </head>
 <body>
 
 <div id="sidebar">
-    <div class="brand">SPATIAL 3D MAP PROCESSOR</div>
+    <div class="brand">SPATIAL 3D MAP PROCESSOR<br><span style="font-size:11px;font-weight:500;color:#93c5fd;">4D Photo / Video Ready</span></div>
     
     <div class="action-toggle-row">
         <button id="btn-tab-file" class="tab-btn active" onclick="switchInputMode('file')">📂 Upload</button>
@@ -119,7 +126,15 @@
             <div class="scanner-title">Live 3D Face Mapping</div>
             <button id="scan-toggle-btn" class="danger-btn" onclick="toggleFaceScanning()">START FACE SCAN</button>
             <button class="primary-btn" onclick="exportScannedMap()" style="background:#10b981;">Export Face JSON</button>
+            <button class="primary-btn" onclick="export4DPhotoGIF()" style="background:#8b5cf6;">Export 4D Photo GIF</button>
+            <button class="primary-btn" onclick="recordLiveFaceGIF()" style="background:#ec4899;">Record Live Face GIF (3s)</button>
         </div>
+    </div>
+
+    <!-- Always-visible 4D export buttons (also useful after loading a file) -->
+    <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="primary-btn" onclick="export4DPhotoGIF()" style="background:#8b5cf6;">Export 4D Photo GIF (Orbit)</button>
+        <button class="primary-btn" onclick="recordLiveFaceGIF()" style="background:#ec4899;">Record Live Face GIF (3s)</button>
     </div>
 
     <div style="font-size:12px;color:#9ca3af;">
@@ -128,7 +143,7 @@
     </div>
 
     <div id="chat-container">
-        <div class="chat-message system">Ready. Upload environment JSON (Omni/Infotter formats supported) or start a face scan.</div>
+        <div class="chat-message system">Ready. Upload environment JSON (Omni/Infotter formats supported) or start a face scan. Then export a 4D Photo GIF or record a live face video GIF.</div>
     </div>
 
     <div class="chat-input-row">
@@ -170,7 +185,7 @@
         camera.position.set(0, 0.8, 4.5);
 
         const canvas = document.getElementById('three-canvas');
-        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+        renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x0f172a);
@@ -256,7 +271,6 @@
         let rawColors = null;
         let rawIntensity = null;
 
-        // Extractors checking standard properties, nested geometries, or custom infotter descriptors
         const extractAttributes = (obj) => {
             if (!obj) return;
             if (obj.position?.array) rawPositions = obj.position.array;
@@ -269,13 +283,11 @@
             else if (obj.intensities) rawIntensity = obj.intensities;
         };
 
-        // 1. Check primary standard root configurations
         extractAttributes(data?.data?.attributes);
         extractAttributes(data?.geometry?.data?.attributes);
-        extractAttributes(data?.infotter?.attributes); // Infotter custom schema channel
+        extractAttributes(data?.infotter?.attributes);
         extractAttributes(data?.attributes);
 
-        // 2. Direct alternate mappings if root nodes are missing
         if (!rawPositions) {
             if (Array.isArray(data.vertices)) rawPositions = data.vertices;
             else if (Array.isArray(data.points)) rawPositions = data.points;
@@ -534,6 +546,127 @@
         a.download = `face_scan_${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
+    }
+
+    // ─────────────────────────────────────────────
+    // 4D Photo / GIF Export
+    // ─────────────────────────────────────────────
+    function export4DPhotoGIF() {
+        if (!pointCloudObject) {
+            appendChat('No point cloud loaded. Load a map or start a face scan first.', 'system');
+            return;
+        }
+
+        appendChat('Generating 4D orbit GIF… this takes a few seconds.', 'system');
+        setProgress(10);
+
+        const gif = new GIF({
+            workers: 2,
+            quality: 10,
+            width: 640,
+            height: 480,
+            workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
+        });
+
+        const originalPosition = camera.position.clone();
+        const originalTarget = controls.target.clone();
+        const frames = 36;               // 10° steps → smooth 360°
+        const radius = camera.position.distanceTo(controls.target);
+
+        let frame = 0;
+
+        function captureFrame() {
+            const angle = (frame / frames) * Math.PI * 2;
+            camera.position.x = Math.sin(angle) * radius;
+            camera.position.z = Math.cos(angle) * radius;
+            camera.lookAt(controls.target);
+            renderer.render(scene, camera);
+
+            // Capture current canvas (resized for GIF)
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(renderer.domElement, 0, 0, 640, 480);
+
+            gif.addFrame(canvas, { delay: 80 });
+
+            frame++;
+            setProgress(10 + (frame / frames) * 80);
+
+            if (frame < frames) {
+                requestAnimationFrame(captureFrame);
+            } else {
+                // Restore camera
+                camera.position.copy(originalPosition);
+                controls.target.copy(originalTarget);
+                controls.update();
+
+                gif.on('finished', (blob) => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `4d_photo_${Date.now()}.gif`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    setProgress(100);
+                    appendChat('4D Photo GIF exported successfully.', 'system');
+                });
+                gif.render();
+            }
+        }
+
+        captureFrame();
+    }
+
+    function recordLiveFaceGIF() {
+        if (!isFaceScanning && !pointCloudObject) {
+            appendChat('Start face scanning or load a map first.', 'system');
+            return;
+        }
+
+        appendChat('Recording live view for 3 seconds…', 'system');
+        setProgress(5);
+
+        const gif = new GIF({
+            workers: 2,
+            quality: 12,
+            width: 640,
+            height: 480,
+            workerScript: 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js'
+        });
+
+        const duration = 3000; // 3 seconds
+        const fps = 12;
+        const totalFrames = Math.round(duration / 1000 * fps);
+        let frameCount = 0;
+
+        const interval = setInterval(() => {
+            renderer.render(scene, camera);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(renderer.domElement, 0, 0, 640, 480);
+
+            gif.addFrame(canvas, { delay: 1000 / fps });
+            frameCount++;
+            setProgress(5 + (frameCount / totalFrames) * 85);
+
+            if (frameCount >= totalFrames) {
+                clearInterval(interval);
+                gif.on('finished', (blob) => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `face_scan_4d_${Date.now()}.gif`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    setProgress(100);
+                    appendChat('Live face / scene GIF exported.', 'system');
+                });
+                gif.render();
+            }
+        }, 1000 / fps);
     }
 
     function sendChatMessage() {
