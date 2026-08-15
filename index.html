@@ -126,8 +126,8 @@ window.addEventListener('resize',onWindowResize); animate();
 function animate(now){
 requestAnimationFrame(animate); if(controls)controls.update();
 if(is4DPlayMode && playbackFrames.length>0 && spatialObject && now-lastFrameTime > (1000/currentFPS)){
-apply4DFrameAndRender(playbackFrameIndex);
 playbackFrameIndex=(playbackFrameIndex+1)%playbackFrames.length;
+apply4DFrameAndRender(playbackFrameIndex);
 const scrubRange = document.getElementById('t-scrub-range');
 if(scrubRange) scrubRange.value = playbackFrameIndex;
 document.getElementById('t-scrub-val').innerText = `${playbackFrameIndex} / ${playbackFrames.length - 1}`;
@@ -142,7 +142,7 @@ function setProgress(p){document.getElementById('progress-fill').style.width=Mat
 function appendChat(t,s=''){const b=document.getElementById('chat-container'); const d=document.createElement('div'); d.className='chat-message '+s; d.innerText=t; b.appendChild(d); b.scrollTop=b.scrollHeight}
 function clearScene(){is4DPlayMode=false; playbackFrames=[]; playbackFrameIndex=0; raw4DSourceFrames=[]; if(spatialObject){scene.remove(spatialObject); spatialObject.geometry.dispose(); spatialObject.material.dispose(); spatialObject=null} document.getElementById('node-counter').innerText='0'; document.getElementById('render-status').innerText='Matrix Cleared'; document.getElementById('bbox-info').innerText=''; setProgress(0)}
 function updatePointSize(v){if(spatialObject && currentRenderMode==='points')spatialObject.material.size=parseFloat(v)} 
-function updateDepthScale(v){currentDepthScale=parseFloat(v)} 
+function updateDepthScale(v){currentDepthScale=parseFloat(v); if(raw4DSourceFrames.length > 0) apply4DFrameAndRender(playbackFrameIndex);} 
 function updateFPS(v){currentFPS=parseInt(v); document.getElementById('fps-label').innerText=v} 
 function toggleGrid(v){if(gridHelper)gridHelper.visible=v}
 function updateRenderMode(m){currentRenderMode = m; if(raw4DSourceFrames.length > 0) apply4DFrameAndRender(playbackFrameIndex);}
@@ -174,12 +174,16 @@ function extract4DSequence(data){
 function getMeshIndices(count){
   const indices = [];
   const side = Math.round(Math.sqrt(count));
-  if(side > 5){
-    for (let i = 0; i < count - side - 1; i++) {
+  if(side > 1){
+    for (let i = 0; i < count - side; i++) {
       if ((i + 1) % side !== 0) {
         indices.push(i, i + 1, i + side);
         indices.push(i + 1, i + side + 1, i + side);
       }
+    }
+  } else {
+    for (let i = 0; i < count - 2; i++) {
+      indices.push(0, i + 1, i + 2);
     }
   }
   return indices;
@@ -196,14 +200,23 @@ function apply4DFrameAndRender(frameIdx){
   const tupleSize = (src.length % 4 === 0) ? 4 : 3;
   
   for(let i=0; i<src.length; i+=tupleSize){
-    filteredPositions.push(src[i], src[i+1], src[i+2] * (currentDepthScale / 12));
-    if(cols.length >= (i/tupleSize)*3 + 3){
-      filteredColors.push(cols[(i/tupleSize)*3], cols[(i/tupleSize)*3+1], cols[(i/tupleSize)*3+2]);
+    let zVal = src[i+2];
+    if(tupleSize === 4){
+      let wVal = src[i+3];
+      zVal += wVal * 0.2; // Blend 4th spatial/temporal dimension seamlessly into Z depth coordinate space
+    }
+    filteredPositions.push(src[i], src[i+1], zVal * (currentDepthScale / 12));
+    
+    let colorIdx = (i / tupleSize) * 3;
+    if(cols.length >= colorIdx + 3){
+      filteredColors.push(cols[colorIdx], cols[colorIdx+1], cols[colorIdx+2]);
     } else {
       filteredColors.push(0.85, 0.68, 0.55);
     }
   }
   
+  if(filteredPositions.length === 0) return;
+
   const posArr = new Float32Array(filteredPositions);
   const colArr = new Float32Array(filteredColors);
   
@@ -378,23 +391,23 @@ function export3DEnvironmentFlythrough(){
     const origPos = camera.position.clone();
     const origTarget = controls.target.clone();
 
-    is4DPlayMode = false; // Pause standard timeline playback to take manual control of frames + camera path
+    is4DPlayMode = false; // Pause standard playback to run manual cinematic path
 
     function flythroughLoop(){
         let progress = currentStep / totalSteps;
         
-        // 1. Advance through the 4D volumetric temporal frames smoothly
+        // 1. Advance temporal frames smoothly
         let targetFrameIdx = Math.floor(progress * (raw4DSourceFrames.length - 1));
         apply4DFrameAndRender(targetFrameIdx);
         document.getElementById('t-scrub-range').value = targetFrameIdx;
         document.getElementById('t-scrub-val').innerText = `${targetFrameIdx} / ${raw4DSourceFrames.length - 1}`;
 
-        // 2. Perform a dynamic 3D camera trajectory (dolly-in, orbit sweep, and elevation rise)
+        // 2. Cinematic 3D camera flythrough trajectory
         let angle = progress * Math.PI * 1.5;
-        let radius = 3.5 - (progress * 1.5); // Smoothly zoom closer into the volumetric structure
+        let radius = 3.5 - (progress * 1.2);
         camera.position.x = Math.sin(angle) * radius;
         camera.position.z = Math.cos(angle) * radius;
-        camera.position.y = 0.1 + (progress * 0.8); // Rise upward to give a true 3D spatial perspective
+        camera.position.y = 0.2 + (progress * 0.6);
         camera.lookAt(origTarget);
         controls.update();
 
@@ -404,7 +417,6 @@ function export3DEnvironmentFlythrough(){
         if(currentStep <= totalSteps){
             requestAnimationFrame(flythroughLoop);
         } else {
-            // Restore original states
             camera.position.copy(origPos);
             controls.target.copy(origTarget);
             controls.update();
