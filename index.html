@@ -156,6 +156,7 @@
         <div style="display:flex; flex-direction:column; gap:6px;">
             <button class="primary-btn" onclick="export4DPhotoGIF()" style="background:#7c3aed;">Export Orbit GIF (360°)</button>
             <button class="primary-btn" onclick="recordLiveFaceGIF()" style="background:#db2777;">Record Live Sequence (3s)</button>
+            <button class="primary-btn" onclick="export4DWebMVideo()" style="background:#2563eb;">Export 4D Video (.webm)</button>
         </div>
     </div>
 
@@ -193,6 +194,8 @@
     let playbackFrames = [];
     let playbackFrameIndex = 0;
     let recorded4DSequence = [];
+    let mediaRecorder;
+    let recordedChunks = [];
 
     window.addEventListener('DOMContentLoaded', () => {
         try { init3D(); } catch (err) { console.error(err); }
@@ -410,7 +413,7 @@
             sizeAttenuation: true,
             transparent: true,
             opacity: 0.95,
-            depthWrite: true,       // True 3D visual hierarchy occlusion enabled
+            depthWrite: true,
             depthTest: true
         });
 
@@ -457,7 +460,6 @@
         if (typeof FaceMesh === 'undefined') return;
 
         faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
-        // Enable refineLandmarks for full mesh high-density extraction & iris contours
         faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
 
         faceMesh.onResults((results) => {
@@ -467,14 +469,12 @@
                 liveVertices = []; liveColors = [];
                 
                 for (const pt of landmarks) {
-                    // Extract full true volumetric depth mapping utilizing slider parameter
                     const x = (pt.x - 0.5) * -3.0;
                     const y = (pt.y - 0.5) * -3.0;
                     const z = (pt.z || 0) * currentDepthScale; 
 
                     liveVertices.push(x, y, z);
                     
-                    // Dynamic coloring shifting based on structural depth layout
                     let depthShade = Math.min(Math.max((z + 2.0) / 4.0, 0.1), 1.0);
                     liveColors.push(0.1 + depthShade * 0.4, 0.65, 1.0 - (depthShade * 0.3));
                 }
@@ -637,6 +637,72 @@
                 gif.render();
             }
         }, 100);
+    }
+
+    function export4DWebMVideo() {
+        if (!pointCloudObject) {
+            appendChat('No active model or sequence loaded for video export.', 'system');
+            return;
+        }
+
+        appendChat('Initializing 4D video stream capture...', 'system');
+        recordedChunks = [];
+
+        const canvas = document.getElementById('three-canvas');
+        const stream = canvas.captureStream(30);
+
+        try {
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+        } catch (e) {
+            try {
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            } catch (err) {
+                appendChat('Video recording not supported by this browser.', 'system');
+                return;
+            }
+        }
+
+        mediaRecorder.ondataavailable = function(event) {
+            if (event.data && event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = function() {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `spatial_4d_video_${Date.now()}.webm`;
+            a.click();
+            appendChat('4D volumetric video successfully exported.', 'system');
+        };
+
+        mediaRecorder.start();
+        
+        let frame = 0;
+        const totalFrames = 90;
+        const originalPos = camera.position.clone();
+        const radius = camera.position.distanceTo(controls.target);
+
+        function renderVideoFrame() {
+            const angle = (frame / totalFrames) * Math.PI * 2;
+            camera.position.x = Math.sin(angle) * radius;
+            camera.position.z = Math.cos(angle) * radius;
+            camera.lookAt(controls.target);
+            renderer.render(scene, camera);
+
+            frame++;
+            if (frame < totalFrames) {
+                requestAnimationFrame(renderVideoFrame);
+            } else {
+                camera.position.copy(originalPos);
+                controls.update();
+                mediaRecorder.stop();
+            }
+        }
+
+        renderVideoFrame();
     }
 
     function sendChatMessage() {
