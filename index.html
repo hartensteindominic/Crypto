@@ -9,13 +9,13 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 #app{display:flex;flex:1;overflow:hidden}
-#panel{width:320px;background:var(--card);border-right:1px solid var(--border);padding:20px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;flex-shrink:0}
+#panel{width:340px;background:var(--card);border-right:1px solid var(--border);padding:18px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
 .logo{font-size:22px;font-weight:700;letter-spacing:-.5px}
-.sub{font-size:13px;color:var(--muted);margin-top:-8px}
-.card{background:#2c2c2e;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.sub{font-size:13px;color:var(--muted);margin-top:-6px}
+.card{background:#2c2c2e;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:9px}
 .label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
 .row{display:flex;justify-content:space-between;align-items:center;font-size:15px}
-button{border:none;border-radius:14px;padding:13px;font-size:15px;font-weight:600;color:#fff;width:100%;cursor:pointer}
+button{border:none;border-radius:14px;padding:12px;font-size:15px;font-weight:600;color:#fff;width:100%;cursor:pointer}
 button:disabled{opacity:.3}
 .primary{background:linear-gradient(135deg,var(--purple),var(--pink))}
 .green{background:var(--green);color:#000}
@@ -26,14 +26,14 @@ input[type=range]{accent-color:var(--pink);width:120px}
 input[type=file]{font-size:13px;color:var(--muted);width:100%}
 #stage{flex:1;position:relative;background:#000}
 canvas{width:100%;height:100%;display:block}
-.badge{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:6px 14px;border-radius:20px;font-size:13px;z-index:10;display:flex;gap:10px;align-items:center}
+.badge{position:absolute;top:14px;right:14px;background:rgba(0,0,0,.5);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:6px 14px;border-radius:20px;font-size:13px;z-index:10;display:flex;gap:10px;align-items:center}
 .rec{display:none;color:#ff453a;font-weight:600;align-items:center;gap:6px}
 .rec.on{display:flex}
 .dot{width:8px;height:8px;background:#ff453a;border-radius:50%;animation:p 1s infinite}
 @keyframes p{50%{opacity:.3}}
 video{display:none}
 .status{font-size:13px;color:var(--blue);min-height:18px}
-@media(max-width:768px){#app{flex-direction:column}#panel{width:100%;max-height:42vh;border-right:none;border-bottom:1px solid var(--border)}}
+@media(max-width:820px){#app{flex-direction:column}#panel{width:100%;max-height:46vh;border-right:none;border-bottom:1px solid var(--border);padding:14px 14px 18px}.logo{font-size:20px}.card{padding:12px;gap:8px}button{padding:11px;font-size:14px}}
 </style>
 </head>
 <body>
@@ -112,7 +112,7 @@ initCam();
 function init(){
   const box=$('stage');
   scene=new THREE.Scene();
-  scene.fog=new THREE.FogExp2(0x000000,0.012);
+  scene.fog=new THREE.FogExp2(0x000000,0.008); // less fog = brighter hologram
   cam=new THREE.PerspectiveCamera(52,box.clientWidth/box.clientHeight,0.05,1000);
   cam.position.set(0,1.4,5.3);
   ren=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true});
@@ -125,8 +125,8 @@ function init(){
   ctrl.autoRotate=true;
   ctrl.autoRotateSpeed=0.35;
   ctrl.target.set(0,0.4,0);
-  scene.add(new THREE.AmbientLight(0xffffff,0.9));
-  const key=new THREE.DirectionalLight(0xa5f3fc,0.3);
+  scene.add(new THREE.AmbientLight(0xffffff,1.1));
+  const key=new THREE.DirectionalLight(0xa5f3fc,0.45);
   key.position.set(2,5,3);
   scene.add(key);
 
@@ -137,7 +137,7 @@ function init(){
   geo.setAttribute('color',colA);
   geo.setDrawRange(0,0);
   pts=new THREE.Points(geo,new THREE.PointsMaterial({
-    size:0.015,vertexColors:true,transparent:true,opacity:0.9,
+    size:0.018,vertexColors:true,transparent:true,opacity:0.95,
     blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true
   }));
   scene.add(pts);
@@ -147,7 +147,7 @@ function init(){
   grid.position.y=-1.3;grid.material.opacity=0.28;grid.material.transparent=true;g.add(grid);
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(9,9),new THREE.MeshBasicMaterial({color:0x0a0a0f,transparent:true,opacity:0.5,side:THREE.DoubleSide}));
   floor.rotation.x=-Math.PI/2;floor.position.y=-1.31;g.add(floor);
-  const frame=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(8.2,4.4,8.2)),new THREE.LineBasicMaterial({color:0x38bdf8,transparent:true,opacity:0.1}));
+  const frame=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(8.2,4.4,8.2)),new THREE.LineBasicMaterial({color:0x38bdf8,transparent:true,opacity:0.12}));
   frame.position.y=0.9;g.add(frame);
   scene.add(g);
 
@@ -200,13 +200,16 @@ function sample(now){
       const i=(y*w+x)*4;
       const r=pix[i]/255,g=pix[i+1]/255,b=pix[i+2]/255;
       const lum=0.299*r+0.587*g+0.114*b;
-      if(lum<0.036)continue;
-      const d=Math.pow(1-lum,1.55);
+      if(lum<0.03)continue;
+      const d=Math.pow(1-lum,1.5);
       const idx=n*3;
       posA.array[idx]=((w-x)/w*2-1)*1.8;
       posA.array[idx+1]=(-(y/h*2-1))*1.6+0.35;
       posA.array[idx+2]=(d-0.36)*(depthMul*0.047);
-      colA.array[idx]=r;colA.array[idx+1]=g;colA.array[idx+2]=b;
+      // brighter live points
+      colA.array[idx]=Math.min(1,r*1.15);
+      colA.array[idx+1]=Math.min(1,g*1.15);
+      colA.array[idx+2]=Math.min(1,b*1.2);
       n++;
     }
   }
@@ -294,7 +297,7 @@ function dlVideo(){
 function dlSeq(){
   if(!frames.length)return;
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([JSON.stringify({v:9,frames:frames.map(f=>({t:Math.round(f.t),n:f.n,pos:Array.from(f.pos),col:Array.from(f.col)}))})],{type:'application/json'}));
+  a.href=URL.createObjectURL(new Blob([JSON.stringify({v:10,frames:frames.map(f=>({t:Math.round(f.t),n:f.n,pos:Array.from(f.pos),col:Array.from(f.col)}))})],{type:'application/json'}));
   a.download=`sequence_${Date.now()}.json`;
   a.click();
 }
@@ -336,15 +339,13 @@ function finalize(pos,col){
   if(env){scene.remove(env);env.geometry.dispose();env.material.dispose()}
   if(glow){scene.remove(glow);glow.geometry.dispose();glow.material.dispose()}
 
+  // Brighter color grade
   for(let i=0;i<col.length;i+=3){
     let r=col[i],g=col[i+1],b=col[i+2];
-    r=Math.min(1,r*0.86+0.05);
-    g=Math.min(1,g*0.92+0.1);
-    b=Math.min(1,b*0.82+0.22);
-    const c=1.08;
-    col[i]=Math.min(1,(r-0.5)*c+0.5);
-    col[i+1]=Math.min(1,(g-0.5)*c+0.5);
-    col[i+2]=Math.min(1,(b-0.5)*c+0.5);
+    r=Math.min(1,r*1.05+0.08);
+    g=Math.min(1,g*1.08+0.12);
+    b=Math.min(1,b*1.12+0.18);
+    col[i]=r;col[i+1]=g;col[i+2]=b;
   }
 
   ePos=new Float32Array(pos);
@@ -353,15 +354,17 @@ function finalize(pos,col){
   geo.setAttribute('position',new THREE.BufferAttribute(ePos,3));
   geo.setAttribute('color',new THREE.BufferAttribute(eCol,3));
 
+  // Main layer – brighter & more visible
   env=new THREE.Points(geo,new THREE.PointsMaterial({
-    size:0.015,vertexColors:true,transparent:true,opacity:0.82,
+    size:0.019,vertexColors:true,transparent:true,opacity:0.92,
     blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true
   }));
   env.position.y=0.28;
   scene.add(env);
 
+  // Stronger glow
   glow=new THREE.Points(geo.clone(),new THREE.PointsMaterial({
-    size:0.032,vertexColors:true,transparent:true,opacity:0.1,
+    size:0.042,vertexColors:true,transparent:true,opacity:0.22,
     blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true
   }));
   glow.position.y=0.28;
@@ -453,10 +456,10 @@ function buildVid(){
           const i=(y*w+xx)*4;
           const r=pix[i]/255,g=pix[i+1]/255,b=pix[i+2]/255;
           const lum=0.299*r+0.587*g+0.114*b;
-          if(lum<0.036)continue;
-          const d=Math.pow(1-lum,1.55);
+          if(lum<0.03)continue;
+          const d=Math.pow(1-lum,1.5);
           p.push(((w-xx)/w*2-1)*1.8,(-(y/h*2-1))*1.6+0.35,(d-0.36)*(depthMul*0.047));
-          cl.push(r,g,b);
+          cl.push(Math.min(1,r*1.1),Math.min(1,g*1.1),Math.min(1,b*1.15));
           n++;
         }
       }
@@ -474,7 +477,7 @@ function buildVid(){
 function saveEnv(){
   if(!ePos)return;
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([JSON.stringify({v:9,n:ePos.length/3,pos:Array.from(ePos),col:Array.from(eCol)})],{type:'application/json'}));
+  a.href=URL.createObjectURL(new Blob([JSON.stringify({v:10,n:ePos.length/3,pos:Array.from(ePos),col:Array.from(eCol)})],{type:'application/json'}));
   a.download=`world_${Date.now()}.json`;
   a.click();
 }
