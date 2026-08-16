@@ -1,0 +1,2209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>HyperStream Advanced</title>
+
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;
+font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+#c{position:fixed;inset:0;width:100%;height:100%}
+
+.top{
+ position:fixed;z-index:10;top:12px;left:14px;right:14px;
+ display:flex;justify-content:space-between;align-items:center;
+ pointer-events:none
+}
+.logo{font-weight:800;font-size:17px}
+.logo small{opacity:.45}
+.pill{
+ background:#111c;padding:7px 11px;border-radius:18px;
+ font-size:11px;backdrop-filter:blur(18px)
+}
+
+.panel{
+ position:fixed;z-index:10;left:10px;right:10px;bottom:10px;
+ padding:12px;border:1px solid #ffffff18;border-radius:20px;
+ background:#111d;backdrop-filter:blur(25px)
+}
+.status{text-align:center;color:#0a84ff;font-size:12px;margin-bottom:9px}
+.row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:7px}
+button{
+ border:0;border-radius:13px;padding:12px 7px;color:white;
+ background:#29292c;font:700 13px system-ui
+}
+button:active{transform:scale(.97)}
+.blue{background:#0a84ff}
+.green{background:#30d158;color:#000}
+.red{background:#ff375f}
+.orange{background:#ff9f0a;color:#000}
+.main{background:linear-gradient(135deg,#bf5af2,#ff375f)}
+
+.overlay{
+ position:fixed;z-index:30;inset:0;background:#000;display:none
+}
+.overlay.active{display:block}
+
+video.full{
+ position:absolute;width:100%;height:100%;object-fit:cover
+}
+
+.scanFrame{
+ position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);
+ width:250px;height:250px;border:3px solid #30d158;
+ border-radius:25px;box-shadow:0 0 35px #30d15866
+}
+.scanFrame:after{
+ content:"";position:absolute;left:12%;right:12%;top:15%;
+ height:2px;background:#fff;box-shadow:0 0 10px #fff;
+ animation:scan 1.6s infinite
+}
+@keyframes scan{50%{top:84%}}
+
+.scanText{
+ position:absolute;top:calc(45% + 145px);left:0;right:0;
+ text-align:center;font-weight:700
+}
+
+.overlayControls{
+ position:absolute;bottom:20px;left:12px;right:12px;
+ display:grid;grid-template-columns:1fr 1fr;gap:8px
+}
+
+.phoneTitle{
+ position:absolute;top:15px;left:15px;
+ padding:8px 12px;background:#111c;border-radius:15px;
+ font-size:13px;font-weight:700
+}
+
+.hide{display:none!important}
+</style>
+</head>
+
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="top">
+  <div class="logo">
+    HyperStream <small>ADVANCED</small>
+  </div>
+  <div class="pill" id="points">0 pts</div>
+</div>
+
+<div class="panel">
+
+  <div class="status" id="status">
+    VR hologram ready
+  </div>
+
+  <div class="row">
+
+    <button class="blue" onclick="openQRScanner()">
+      📷 Scan QR
+    </button>
+
+    <button class="green" onclick="startVRScan()">
+      🥽 VR Scan
+    </button>
+
+    <button class="main" onclick="buildHologram()">
+      ✨ Build
+    </button>
+
+  </div>
+
+  <div class="row">
+
+    <button onclick="showPairQR()">
+      🔗 Phone QR
+    </button>
+
+    <button class="red" onclick="toggleRecording()">
+      ● Record
+    </button>
+
+    <button class="orange" onclick="playRecording()">
+      ▶ Play
+    </button>
+
+  </div>
+
+  <div class="row">
+
+    <button onclick="openFile()">
+      Upload
+    </button>
+
+    <button onclick="clearHologram()">
+      Clear
+    </button>
+
+    <button onclick="resetCamera()">
+      Reset View
+    </button>
+
+  </div>
+
+</div>
+
+<input id="file"
+       type="file"
+       accept="image/*,video/*,.json"
+       class="hide"
+       onchange="handleFile(event)">
+
+
+<!-- =====================================================
+     VR QR SCANNER
+===================================================== -->
+
+<div id="qrOverlay" class="overlay">
+
+  <video
+    id="qrVideo"
+    class="full"
+    autoplay
+    muted
+    playsinline>
+  </video>
+
+  <div class="scanFrame"></div>
+
+  <div class="scanText">
+    Point the VR camera at the HyperStream QR
+  </div>
+
+  <div class="overlayControls">
+
+    <button onclick="closeQRScanner()">
+      Cancel
+    </button>
+
+    <button class="green" onclick="manualQRCamera()">
+      Enable Camera
+    </button>
+
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     PHONE CAMERA MODE
+===================================================== -->
+
+<div id="phoneOverlay" class="overlay">
+
+  <video
+    id="phoneVideo"
+    class="full"
+    autoplay
+    muted
+    playsinline>
+  </video>
+
+  <div class="phoneTitle">
+    HyperStream Phone Scanner
+  </div>
+
+  <div class="overlayControls">
+
+    <button class="green"
+            onclick="startPhoneCamera()">
+      📷 Start Camera
+    </button>
+
+    <button class="orange"
+            onclick="togglePhoneStream()">
+      Send Frames
+    </button>
+
+    <button onclick="togglePhoneRecording()">
+      Record
+    </button>
+
+    <button onclick="closePhone()">
+      Close
+    </button>
+
+  </div>
+
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+
+<script>
+"use strict";
+
+
+/* =====================================================
+   GLOBALS
+===================================================== */
+
+const $ = id => document.getElementById(id);
+
+let scene;
+let camera;
+let renderer;
+let controls;
+
+let geometry;
+let points;
+
+let vrStream = null;
+let qrStream = null;
+let phoneStream = null;
+
+let peer = null;
+let connection = null;
+
+let hostId = null;
+
+let phoneSending = false;
+let recording = false;
+let phoneRecording = false;
+
+let recordedFrames = [];
+
+let scanVideo = null;
+
+const MAX_POINTS = 150000;
+
+const positions =
+  new Float32Array(MAX_POINTS * 3);
+
+const colors =
+  new Float32Array(MAX_POINTS * 3);
+
+let currentPointCount = 0;
+
+
+/* =====================================================
+   STATUS
+===================================================== */
+
+function status(text){
+  $("status").textContent = text;
+}
+
+
+/* =====================================================
+   THREE.JS
+===================================================== */
+
+function init3D(){
+
+  scene = new THREE.Scene();
+
+  scene.fog =
+    new THREE.FogExp2(
+      0x000000,
+      .002
+    );
+
+
+  camera =
+    new THREE.PerspectiveCamera(
+      55,
+      innerWidth / innerHeight,
+      .1,
+      500
+    );
+
+
+  camera.position.set(
+    0,
+    1,
+    8
+  );
+
+
+  renderer =
+    new THREE.WebGLRenderer({
+      canvas:$("c"),
+      antialias:true,
+      powerPreference:"high-performance"
+    });
+
+
+  renderer.setPixelRatio(
+    Math.min(
+      devicePixelRatio || 1,
+      1.6
+    )
+  );
+
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+
+
+  controls =
+    new THREE.OrbitControls(
+      camera,
+      renderer.domElement
+    );
+
+
+  controls.enableDamping = true;
+
+  controls.dampingFactor = .06;
+
+  controls.autoRotate = true;
+
+  controls.autoRotateSpeed = .2;
+
+
+  geometry =
+    new THREE.BufferGeometry();
+
+
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+
+  geometry.setAttribute(
+    "color",
+    new THREE.BufferAttribute(
+      colors,
+      3
+    )
+  );
+
+
+  geometry.setDrawRange(
+    0,
+    0
+  );
+
+
+  points =
+    new THREE.Points(
+      geometry,
+
+      new THREE.PointsMaterial({
+
+        size:.045,
+
+        vertexColors:true,
+
+        transparent:true,
+
+        opacity:.95,
+
+        blending:
+          THREE.AdditiveBlending,
+
+        depthWrite:false,
+
+        sizeAttenuation:true
+
+      })
+    );
+
+
+  scene.add(points);
+
+
+  const grid =
+    new THREE.GridHelper(
+      10,
+      20,
+      0x173a7a,
+      0x111111
+    );
+
+
+  grid.position.y = -1.2;
+
+  grid.material.opacity = .12;
+
+  grid.material.transparent = true;
+
+  scene.add(grid);
+
+
+  addEventListener(
+    "resize",
+    resize
+  );
+
+
+  renderer.setAnimationLoop(
+    render
+  );
+
+}
+
+
+function resize(){
+
+  camera.aspect =
+    innerWidth / innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+
+}
+
+
+function render(){
+
+  controls.update();
+
+  renderer.render(
+    scene,
+    camera
+  );
+
+}
+
+
+/* =====================================================
+   PEER HOST
+===================================================== */
+
+function createHost(){
+
+  try{
+
+    peer =
+      new Peer();
+
+
+    peer.on(
+      "open",
+      id=>{
+
+        hostId = id;
+
+        status(
+          "Ready · phone pairing available"
+        );
+
+      }
+    );
+
+
+    peer.on(
+      "connection",
+      conn=>{
+
+        connection = conn;
+
+        status(
+          "📱 Phone connected"
+        );
+
+
+        conn.on(
+          "data",
+          handlePhoneData
+        );
+
+
+        conn.on(
+          "close",
+          ()=>{
+
+            connection=null;
+
+            status(
+              "Phone disconnected"
+            );
+
+          }
+        );
+
+      }
+    );
+
+
+  }catch(e){
+
+    status(
+      "Peer connection unavailable"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   PHONE QR
+===================================================== */
+
+function showPairQR(){
+
+  if(!hostId){
+
+    status(
+      "Preparing phone connection..."
+    );
+
+    setTimeout(
+      showPairQR,
+      500
+    );
+
+    return;
+
+  }
+
+
+  const url =
+    location.origin +
+    location.pathname +
+    "?host=" +
+    encodeURIComponent(
+      hostId
+    );
+
+
+  const qr =
+    "https://api.qrserver.com/v1/create-qr-code/"+
+    "?size=600x600&data="+
+    encodeURIComponent(url);
+
+
+  window.open(
+    qr,
+    "_blank"
+  );
+
+
+  status(
+    "Scan the QR with the phone"
+  );
+
+}
+
+
+/* =====================================================
+   VR QR SCANNER
+===================================================== */
+
+async function openQRScanner(){
+
+  $("qrOverlay")
+    .classList
+    .add("active");
+
+
+  status(
+    "Opening VR QR scanner..."
+  );
+
+
+  try{
+
+    qrStream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video:{
+          facingMode:{
+            ideal:"environment"
+          },
+
+          width:{
+            ideal:1280
+          },
+
+          height:{
+            ideal:720
+          }
+
+        },
+
+        audio:false
+
+      });
+
+
+    $("qrVideo").srcObject =
+      qrStream;
+
+
+    await $("qrVideo").play();
+
+
+    status(
+      "Aim VR camera at QR"
+    );
+
+
+    requestAnimationFrame(
+      scanQR
+    );
+
+
+  }catch(e){
+
+    status(
+      "VR camera permission required"
+    );
+
+  }
+
+}
+
+
+function closeQRScanner(){
+
+  if(qrStream){
+
+    qrStream
+      .getTracks()
+      .forEach(
+        t=>t.stop()
+      );
+
+  }
+
+
+  qrStream=null;
+
+
+  $("qrOverlay")
+    .classList
+    .remove("active");
+
+}
+
+
+function manualQRCamera(){
+
+  if(qrStream){
+
+    status(
+      "Camera active · scan QR"
+    );
+
+  }else{
+
+    openQRScanner();
+
+  }
+
+}
+
+
+/* =====================================================
+   QR DETECTION
+===================================================== */
+
+function scanQR(){
+
+  if(
+    !$("qrOverlay")
+      .classList
+      .contains("active")
+  )
+    return;
+
+
+  const video =
+    $("qrVideo");
+
+
+  if(
+    video.readyState >= 2 &&
+    video.videoWidth
+  ){
+
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+
+    const width = 640;
+
+    const height =
+      Math.round(
+        video.videoHeight /
+        video.videoWidth *
+        width
+      );
+
+
+    canvas.width=width;
+
+    canvas.height=height;
+
+
+    const ctx =
+      canvas.getContext(
+        "2d",
+        {
+          willReadFrequently:true
+        }
+      );
+
+
+    ctx.drawImage(
+      video,
+      0,
+      0,
+      width,
+      height
+    );
+
+
+    const image =
+      ctx.getImageData(
+        0,
+        0,
+        width,
+        height
+      );
+
+
+    const result =
+      jsQR(
+        image.data,
+        width,
+        height,
+        {
+          inversionAttempts:
+            "attemptBoth"
+        }
+      );
+
+
+    if(result){
+
+      status(
+        "QR detected · connecting..."
+      );
+
+
+      closeQRScanner();
+
+
+      connectFromQR(
+        result.data
+      );
+
+
+      return;
+
+    }
+
+  }
+
+
+  requestAnimationFrame(
+    scanQR
+  );
+
+}
+
+
+/* =====================================================
+   CONNECT FROM QR
+===================================================== */
+
+function connectFromQR(data){
+
+  try{
+
+    const url =
+      new URL(data);
+
+
+    const remoteHost =
+      url.searchParams.get(
+        "host"
+      );
+
+
+    if(!remoteHost)
+      throw new Error(
+        "No host"
+      );
+
+
+    peer =
+      new Peer();
+
+
+    peer.on(
+      "open",
+      ()=>{
+
+        connection =
+          peer.connect(
+            remoteHost,
+            {
+              reliable:true
+            }
+          );
+
+
+        connection.on(
+          "open",
+          ()=>{
+
+            status(
+              "🥽 VR connected to phone"
+            );
+
+
+            connection.send({
+              type:"hello"
+            });
+
+          }
+        );
+
+
+        connection.on(
+          "data",
+          handlePhoneData
+        );
+
+      }
+    );
+
+
+  }catch(e){
+
+    status(
+      "Invalid HyperStream QR"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   PHONE CAMERA
+===================================================== */
+
+async function startPhoneCamera(){
+
+  if(phoneStream)
+    return;
+
+
+  try{
+
+    phoneStream =
+      await navigator.mediaDevices
+        .getUserMedia({
+
+          video:{
+            facingMode:{
+              ideal:"environment"
+            },
+
+            width:{
+              ideal:1280
+            },
+
+            height:{
+              ideal:720
+            }
+
+          },
+
+          audio:false
+
+        });
+
+
+    $("phoneVideo").srcObject =
+      phoneStream;
+
+
+    await $("phoneVideo").play();
+
+
+    $("phoneOverlay")
+      .classList
+      .add("active");
+
+
+    status(
+      "Phone camera active"
+    );
+
+
+  }catch(e){
+
+    status(
+      "Phone camera permission required"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   PHONE FRAME STREAM
+===================================================== */
+
+function togglePhoneStream(){
+
+  phoneSending =
+    !phoneSending;
+
+
+  if(phoneSending){
+
+    status(
+      "Phone → VR spatial stream ON"
+    );
+
+
+    sendPhoneFrames();
+
+  }else{
+
+    status(
+      "Phone spatial stream paused"
+    );
+
+  }
+
+}
+
+
+function sendPhoneFrames(){
+
+  if(!phoneSending)
+    return;
+
+
+  if(
+    !connection ||
+    !connection.open ||
+    !phoneStream
+  ){
+
+    setTimeout(
+      sendPhoneFrames,
+      500
+    );
+
+    return;
+
+  }
+
+
+  const video =
+    $("phoneVideo");
+
+
+  if(
+    video.readyState < 2
+  ){
+
+    setTimeout(
+      sendPhoneFrames,
+      300
+    );
+
+    return;
+
+  }
+
+
+  const width=260;
+
+
+  const height =
+    Math.max(
+      160,
+      Math.round(
+        video.videoHeight /
+        video.videoWidth *
+        width
+      )
+    );
+
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+
+  canvas.width=width;
+
+  canvas.height=height;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d",
+      {
+        willReadFrequently:true
+      }
+    );
+
+
+  ctx.drawImage(
+    video,
+    0,
+    0,
+    width,
+    height
+  );
+
+
+  const data =
+    ctx.getImageData(
+      0,
+      0,
+      width,
+      height
+    ).data;
+
+
+  const frame=[];
+
+
+  for(
+    let y=2;
+    y<height-2;
+    y+=3
+  ){
+
+    for(
+      let x=2;
+      x<width-2;
+      x+=3
+    ){
+
+      const i =
+        (y*width+x)*4;
+
+
+      const r =
+        data[i]/255;
+
+      const g =
+        data[i+1]/255;
+
+      const b =
+        data[i+2]/255;
+
+
+      const lum =
+        .299*r+
+        .587*g+
+        .114*b;
+
+
+      if(
+        lum<.035 ||
+        lum>.97
+      )
+        continue;
+
+
+      const depth =
+        Math.pow(
+          1-lum,
+          1.15
+        );
+
+
+      frame.push(
+
+        ((x/width)-.5)*4,
+
+        (.5-y/height)*3,
+
+        (depth-.2)*3,
+
+        r,
+        g,
+        b
+
+      );
+
+
+      if(
+        frame.length>=60000
+      )
+        break;
+
+    }
+
+  }
+
+
+  connection.send({
+
+    type:"spatialFrame",
+
+    points:frame,
+
+    time:Date.now()
+
+  });
+
+
+  if(phoneRecording){
+
+    recordedFrames.push(
+      frame
+    );
+
+  }
+
+
+  setTimeout(
+    sendPhoneFrames,
+    150
+  );
+
+}
+
+
+/* =====================================================
+   RECEIVE PHONE DATA
+===================================================== */
+
+function handlePhoneData(data){
+
+  if(!data)
+    return;
+
+
+  if(
+    data.type==="hello"
+  ){
+
+    status(
+      "📱 Phone scanner connected"
+    );
+
+    return;
+
+  }
+
+
+  if(
+    data.type!=="spatialFrame"
+  )
+    return;
+
+
+  const p =
+    data.points;
+
+
+  if(
+    !Array.isArray(p) ||
+    p.length<6
+  )
+    return;
+
+
+  framesToHologram(
+    p
+  );
+
+
+  if(recording){
+
+    recordedFrames.push(
+      p
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   FRAME → HOLOGRAM
+===================================================== */
+
+function framesToHologram(p){
+
+  const offset =
+    currentPointCount;
+
+
+  let n=0;
+
+
+  for(
+    let i=0;
+    i<p.length &&
+    currentPointCount<MAX_POINTS;
+    i+=6
+  ){
+
+    const j =
+      currentPointCount*3;
+
+
+    positions[j] =
+      p[i];
+
+
+    positions[j+1] =
+      p[i+1];
+
+
+    positions[j+2] =
+      p[i+2];
+
+
+    colors[j] =
+      p[i+3];
+
+
+    colors[j+1] =
+      p[i+4];
+
+
+    colors[j+2] =
+      p[i+5];
+
+
+    currentPointCount++;
+
+    n++;
+
+  }
+
+
+  geometry.setDrawRange(
+    0,
+    currentPointCount
+  );
+
+
+  geometry.attributes
+    .position
+    .needsUpdate=true;
+
+
+  geometry.attributes
+    .color
+    .needsUpdate=true;
+
+
+  $("points").textContent =
+    currentPointCount
+      .toLocaleString()+
+    " pts";
+
+
+}
+
+
+/* =====================================================
+   VR CAMERA SCANNER
+===================================================== */
+
+async function startVRScan(){
+
+  if(vrStream){
+
+    status(
+      "VR scanning..."
+    );
+
+    return;
+
+  }
+
+
+  try{
+
+    vrStream =
+      await navigator.mediaDevices
+        .getUserMedia({
+
+          video:{
+            facingMode:{
+              ideal:"environment"
+            },
+
+            width:{
+              ideal:1280
+            },
+
+            height:{
+              ideal:720
+            }
+
+          },
+
+          audio:false
+
+        });
+
+
+    scanVideo =
+      document.createElement(
+        "video"
+      );
+
+
+    scanVideo.srcObject =
+      vrStream;
+
+    scanVideo.muted=true;
+
+    scanVideo.playsInline=true;
+
+    scanVideo.autoplay=true;
+
+
+    await scanVideo.play();
+
+
+    status(
+      "🥽 VR camera scanning"
+    );
+
+
+    scanVRFrame();
+
+  }catch(e){
+
+    status(
+      "VR camera unavailable"
+    );
+
+  }
+
+}
+
+
+function scanVRFrame(){
+
+  if(
+    !vrStream ||
+    !scanVideo
+  )
+    return;
+
+
+  if(
+    scanVideo.readyState<2
+  ){
+
+    requestAnimationFrame(
+      scanVRFrame
+    );
+
+    return;
+
+  }
+
+
+  const width=260;
+
+
+  const height =
+    Math.max(
+      160,
+      Math.round(
+        scanVideo.videoHeight /
+        scanVideo.videoWidth *
+        width
+      )
+    );
+
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+
+  canvas.width=width;
+
+  canvas.height=height;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d",
+      {
+        willReadFrequently:true
+      }
+    );
+
+
+  ctx.drawImage(
+    scanVideo,
+    0,
+    0,
+    width,
+    height
+  );
+
+
+  const data =
+    ctx.getImageData(
+      0,
+      0,
+      width,
+      height
+    ).data;
+
+
+  const p=[];
+
+
+  for(
+    let y=2;
+    y<height-2;
+    y+=3
+  ){
+
+    for(
+      let x=2;
+      x<width-2;
+      x+=3
+    ){
+
+      const i =
+        (y*width+x)*4;
+
+
+      const r =
+        data[i]/255;
+
+      const g =
+        data[i+1]/255;
+
+      const b =
+        data[i+2]/255;
+
+
+      const lum =
+        .299*r+
+        .587*g+
+        .114*b;
+
+
+      if(
+        lum<.035 ||
+        lum>.97
+      )
+        continue;
+
+
+      const depth =
+        Math.pow(
+          1-lum,
+          1.15
+        );
+
+
+      p.push(
+
+        ((x/width)-.5)*4,
+
+        (.5-y/height)*3,
+
+        (depth-.2)*3,
+
+        r,
+        g,
+        b
+
+      );
+
+    }
+
+  }
+
+
+  framesToHologram(
+    p
+  );
+
+
+  if(recording){
+
+    recordedFrames.push(
+      p
+    );
+
+  }
+
+
+  requestAnimationFrame(
+    scanVRFrame
+  );
+
+}
+
+
+/* =====================================================
+   RECORDING
+===================================================== */
+
+function toggleRecording(){
+
+  recording =
+    !recording;
+
+
+  if(recording){
+
+    recordedFrames=[];
+
+    status(
+      "🔴 Recording VR + phone spatial data"
+    );
+
+  }else{
+
+    status(
+      "Recording saved · "+
+      recordedFrames.length+
+      " frames"
+    );
+
+  }
+
+}
+
+
+function togglePhoneRecording(){
+
+  phoneRecording =
+    !phoneRecording;
+
+
+  if(phoneRecording){
+
+    recordedFrames=[];
+
+    status(
+      "Phone recording started"
+    );
+
+  }else{
+
+    status(
+      "Phone recording stopped"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   BUILD HOLOGRAM
+===================================================== */
+
+function buildHologram(){
+
+  if(
+    !recordedFrames.length
+  ){
+
+    if(
+      currentPointCount===0
+    ){
+
+      status(
+        "Scan something first"
+      );
+
+      return;
+
+    }
+
+    status(
+      "Live hologram already active"
+    );
+
+    return;
+
+  }
+
+
+  currentPointCount=0;
+
+
+  for(
+    let f=0;
+    f<recordedFrames.length;
+    f++
+  ){
+
+    const frame =
+      recordedFrames[f];
+
+
+    const zOffset =
+      (
+        f /
+        Math.max(
+          1,
+          recordedFrames.length-1
+        ) -
+        .5
+      ) * 2.4;
+
+
+    for(
+      let i=0;
+      i<frame.length &&
+      currentPointCount<MAX_POINTS;
+      i+=6
+    ){
+
+      const j =
+        currentPointCount*3;
+
+
+      positions[j] =
+        frame[i];
+
+
+      positions[j+1] =
+        frame[i+1];
+
+
+      positions[j+2] =
+        frame[i+2] +
+        zOffset;
+
+
+      colors[j] =
+        frame[i+3];
+
+
+      colors[j+1] =
+        frame[i+4];
+
+
+      colors[j+2] =
+        frame[i+5];
+
+
+      currentPointCount++;
+
+    }
+
+  }
+
+
+  geometry.setDrawRange(
+    0,
+    currentPointCount
+  );
+
+
+  geometry.attributes
+    .position
+    .needsUpdate=true;
+
+
+  geometry.attributes
+    .color
+    .needsUpdate=true;
+
+
+  controls.autoRotate=true;
+
+
+  status(
+    "✨ Hologram built · "+
+    currentPointCount.toLocaleString()+
+    " points"
+  );
+
+
+  $("points").textContent =
+    currentPointCount
+      .toLocaleString()+
+    " pts";
+
+}
+
+
+/* =====================================================
+   PLAY RECORDING
+===================================================== */
+
+function playRecording(){
+
+  if(
+    !recordedFrames.length
+  ){
+
+    status(
+      "No recording available"
+    );
+
+    return;
+
+  }
+
+
+  currentPointCount=0;
+
+
+  let index=0;
+
+
+  controls.autoRotate=false;
+
+
+  function play(){
+
+    if(
+      index>=recordedFrames.length
+    ){
+
+      status(
+        "▶ Recording finished"
+      );
+
+      controls.autoRotate=true;
+
+      return;
+
+    }
+
+
+    currentPointCount=0;
+
+
+    const frame =
+      recordedFrames[index];
+
+
+    for(
+      let i=0;
+      i<frame.length &&
+      currentPointCount<MAX_POINTS;
+      i+=6
+    ){
+
+      const j =
+        currentPointCount*3;
+
+
+      positions[j]=frame[i];
+
+      positions[j+1]=frame[i+1];
+
+      positions[j+2]=frame[i+2];
+
+
+      colors[j]=frame[i+3];
+
+      colors[j+1]=frame[i+4];
+
+      colors[j+2]=frame[i+5];
+
+
+      currentPointCount++;
+
+    }
+
+
+    geometry.setDrawRange(
+      0,
+      currentPointCount
+    );
+
+
+    geometry.attributes
+      .position
+      .needsUpdate=true;
+
+
+    geometry.attributes
+      .color
+      .needsUpdate=true;
+
+
+    status(
+      "▶ Playing "+
+      (index+1)+
+      " / "+
+      recordedFrames.length
+    );
+
+
+    index++;
+
+
+    setTimeout(
+      play,
+      100
+    );
+
+  }
+
+
+  play();
+
+}
+
+
+/* =====================================================
+   FILES
+===================================================== */
+
+function openFile(){
+
+  $("file").click();
+
+}
+
+
+function handleFile(event){
+
+  const file =
+    event.target.files[0];
+
+
+  if(!file)
+    return;
+
+
+  if(
+    file.type.startsWith("image/")
+  ){
+
+    const img =
+      new Image();
+
+
+    img.onload=()=>{
+
+      const canvas =
+        document.createElement(
+          "canvas"
+        );
+
+
+      const scale =
+        Math.min(
+          1,
+          720/img.width
+        );
+
+
+      canvas.width =
+        img.width*scale;
+
+
+      canvas.height =
+        img.height*scale;
+
+
+      const ctx =
+        canvas.getContext(
+          "2d"
+        );
+
+
+      ctx.drawImage(
+        img,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+
+      const data =
+        ctx.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        ).data;
+
+
+      const frame=[];
+
+
+      for(
+        let y=0;
+        y<canvas.height;
+        y+=3
+      ){
+
+        for(
+          let x=0;
+          x<canvas.width;
+          x+=3
+        ){
+
+          const i =
+            (y*canvas.width+x)*4;
+
+
+          const r=data[i]/255;
+
+          const g=data[i+1]/255;
+
+          const b=data[i+2]/255;
+
+
+          const lum =
+            .299*r+
+            .587*g+
+            .114*b;
+
+
+          if(
+            lum<.03 ||
+            lum>.98
+          )
+            continue;
+
+
+          frame.push(
+
+            (x/canvas.width-.5)*4,
+
+            (.5-y/canvas.height)*3,
+
+            (1-lum)*3,
+
+            r,
+            g,
+            b
+
+          );
+
+        }
+
+      }
+
+
+      recordedFrames.push(
+        frame
+      );
+
+
+      buildHologram();
+
+    };
+
+
+    img.src =
+      URL.createObjectURL(file);
+
+  }
+
+
+  event.target.value="";
+
+}
+
+
+/* =====================================================
+   CLEAR
+===================================================== */
+
+function clearHologram(){
+
+  currentPointCount=0;
+
+  recordedFrames=[];
+
+
+  geometry.setDrawRange(
+    0,
+    0
+  );
+
+
+  geometry.attributes
+    .position
+    .needsUpdate=true;
+
+
+  geometry.attributes
+    .color
+    .needsUpdate=true;
+
+
+  $("points").textContent =
+    "0 pts";
+
+
+  status(
+    "Hologram cleared"
+  );
+
+}
+
+
+/* =====================================================
+   RESET
+===================================================== */
+
+function resetCamera(){
+
+  camera.position.set(
+    0,
+    1,
+    8
+  );
+
+
+  controls.target.set(
+    0,
+    .3,
+    0
+  );
+
+
+  controls.update();
+
+}
+
+
+/* =====================================================
+   CLOSE PHONE
+===================================================== */
+
+function closePhone(){
+
+  phoneSending=false;
+
+
+  if(phoneStream){
+
+    phoneStream
+      .getTracks()
+      .forEach(
+        t=>t.stop()
+      );
+
+  }
+
+
+  phoneStream=null;
+
+
+  $("phoneOverlay")
+    .classList
+    .remove("active");
+
+}
+
+
+/* =====================================================
+   URL PHONE MODE
+===================================================== */
+
+function checkPhoneURL(){
+
+  const params =
+    new URLSearchParams(
+      location.search
+    );
+
+
+  const host =
+    params.get("host");
+
+
+  if(!host)
+    return;
+
+
+  $("phoneOverlay")
+    .classList
+    .add("active");
+
+
+  status(
+    "Phone pairing mode"
+  );
+
+
+  peer =
+    new Peer();
+
+
+  peer.on(
+    "open",
+    ()=>{
+
+      connection =
+        peer.connect(
+          host,
+          {
+            reliable:true
+          }
+        );
+
+
+      connection.on(
+        "open",
+        ()=>{
+
+          connection.send({
+            type:"hello"
+          });
+
+
+          startPhoneCamera();
+
+        }
+      );
+
+    }
+  );
+
+}
+
+
+/* =====================================================
+   START
+===================================================== */
+
+init3D();
+
+createHost();
+
+checkPhoneURL();
+
+</script>
+
+</body>
+</html>
