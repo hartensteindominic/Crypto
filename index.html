@@ -41,14 +41,15 @@ video{display:none}
   <div id="panel">
     <div>
       <div class="logo">HyperStream</div>
-      <div class="sub">Make holographic worlds</div>
+      <div class="sub">AI-powered holographic worlds</div>
     </div>
 
     <div class="card">
       <div class="label">Live Holo Scan</div>
       <button class="red" id="scanBtn" onclick="toggleScan()">Start Scanning</button>
-      <div class="row"><span>Detail</span><input type="range" min="1" max="4" value="2" oninput="stepSize=+this.value"></div>
-      <div class="row"><span>Depth</span><input type="range" min="50" max="200" value="120" oninput="depthMul=+this.value"></div>
+      <div class="row"><span>Detail</span><input type="range" min="1" max="4" value="1" oninput="stepSize=+this.value"></div>
+      <div class="row"><span>Depth</span><input type="range" min="50" max="320" value="180" oninput="depthMul=+this.value"></div>
+      <div class="row"><span>Brightness</span><input type="range" min="0.6" max="3.2" step="0.1" value="1.8" oninput="setBrightness(+this.value)"></div>
       <div class="row"><span>Points</span><b id="nLive" style="color:var(--pink)">0</b></div>
     </div>
 
@@ -66,8 +67,9 @@ video{display:none}
     <div class="card">
       <div class="label">Create World</div>
       <div class="row"><span>World Points</span><b id="envPts" style="color:var(--green)">0</b></div>
+      <div class="row"><span>AI Depth</span><b id="neuralStatus" style="color:var(--muted)">Loading…</b></div>
       <div class="status" id="status"></div>
-      <button class="primary" id="buildSeq" onclick="buildSeq()" disabled>Build World</button>
+      <button class="primary" id="buildSeq" onclick="buildSeq()" disabled>Build World (AI Depth)</button>
       <button class="orange" id="buildVid" onclick="buildVid()" disabled>Build from Video</button>
       <button class="green" id="saveBtn" onclick="saveEnv()" disabled>Save World</button>
       <button class="orange" id="shareBtn" onclick="shareEnv()" disabled>Share as Video</button>
@@ -94,17 +96,86 @@ video{display:none}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script type="module">
+import { pipeline, env as hfEnv } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.0';
+hfEnv.allowLocalModels = false;
+hfEnv.useBrowserCache = true;
+window.__hfPipeline = pipeline;
+window.dispatchEvent(new Event('hf-ready'));
+</script>
 <script>
 const $=id=>document.getElementById(id);
 let scene,cam,ren,ctrl,video,c2d,ctx,ready=false,scanning=false;
-let stepSize=2,depthMul=120,fc=0,ft=0;
+let stepSize=1,depthMul=180,brightness=1.8,fc=0,ft=0;
 let recording=false,mr,chunks=[],videoBlob=null,frames=[];
 let recStart=0,timer,lastCap=0;
 let playing=false,pIdx=0,pLast=0;
-let pts,posA,colA;
-const MAX=80000;
+let pts,ptsGlow,posA,colA;
+const MAX=200000;
 let env,glow,ePos,eCol;
 let eRec=false,eMr,eChunks=[];
+let timeUniform={value:0};
+let depthEstimator=null, neuralReady=false, neuralLoading=false;
+
+const holoVert=`
+attribute vec3 color;
+uniform float uSize;
+uniform float uTime;
+varying vec3 vColor;
+varying float vDepth;
+void main(){
+  vColor=color;
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  vDepth=-mv.z;
+  float shimmer=1.0+0.08*sin(uTime*2.1+position.x*12.0+position.y*9.0);
+  gl_PointSize=uSize*shimmer*(300.0/max(vDepth,0.5));
+  gl_Position=projectionMatrix*mv;
+}`;
+
+const holoFrag=`
+uniform float uOpacity;
+uniform float uSoftness;
+uniform float uCore;
+uniform float uFresnel;
+uniform float uTime;
+varying vec3 vColor;
+varying float vDepth;
+void main(){
+  vec2 uv=gl_PointCoord-vec2(0.5);
+  float dist=length(uv);
+  if(dist>0.5)discard;
+  float alpha=exp(-dist*dist*8.5);
+  alpha*=smoothstep(0.5,0.15,dist);
+  alpha=pow(alpha,0.85);
+  float core=exp(-dist*dist*28.0);
+  vec3 col=vColor*(1.0+core*uCore*1.3);
+  float fres=pow(clamp(1.0-2.0*dist,0.0,1.0),1.8);
+  col+=vec3(0.12,0.65,1.0)*fres*uFresnel;
+  col+=vec3(1.0,0.25,0.75)*fres*uFresnel*0.4;
+  float scan=0.92+0.08*sin(gl_FragCoord.y*0.35+uTime*3.0);
+  col*=scan;
+  float dfade=smoothstep(16.0,3.5,vDepth);
+  gl_FragColor=vec4(col,alpha*uOpacity*dfade);
+}`;
+
+function makeHoloMat(size,opacity,softness,core,fresnel){
+  return new THREE.ShaderMaterial({
+    uniforms:{
+      uSize:{value:size},
+      uOpacity:{value:opacity},
+      uSoftness:{value:softness},
+      uCore:{value:core},
+      uFresnel:{value:fresnel},
+      uTime:timeUniform
+    },
+    vertexShader:holoVert,
+    fragmentShader:holoFrag,
+    vertexColors:true,
+    transparent:true,
+    depthWrite:false,
+    blending:THREE.AdditiveBlending
+  });
+}
 
 init();
 initCam();
@@ -112,23 +183,26 @@ initCam();
 function init(){
   const box=$('stage');
   scene=new THREE.Scene();
-  scene.fog=new THREE.FogExp2(0x000000,0.008); // less fog = brighter hologram
-  cam=new THREE.PerspectiveCamera(52,box.clientWidth/box.clientHeight,0.05,1000);
-  cam.position.set(0,1.4,5.3);
+  scene.fog=new THREE.FogExp2(0x000000,0.0035);
+  cam=new THREE.PerspectiveCamera(50,box.clientWidth/box.clientHeight,0.05,1000);
+  cam.position.set(0,1.5,5.5);
   ren=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true});
   ren.setSize(box.clientWidth,box.clientHeight);
   ren.setPixelRatio(Math.min(devicePixelRatio||1,2));
   ren.setClearColor(0x000000);
   ctrl=new THREE.OrbitControls(cam,ren.domElement);
   ctrl.enableDamping=true;
-  ctrl.dampingFactor=0.08;
+  ctrl.dampingFactor=0.07;
   ctrl.autoRotate=true;
-  ctrl.autoRotateSpeed=0.35;
-  ctrl.target.set(0,0.4,0);
-  scene.add(new THREE.AmbientLight(0xffffff,1.1));
-  const key=new THREE.DirectionalLight(0xa5f3fc,0.45);
+  ctrl.autoRotateSpeed=0.32;
+  ctrl.target.set(0,0.35,0);
+  scene.add(new THREE.AmbientLight(0xffffff,1.5));
+  const key=new THREE.DirectionalLight(0xb8f0ff,0.65);
   key.position.set(2,5,3);
   scene.add(key);
+  const fill=new THREE.DirectionalLight(0xffb8e0,0.25);
+  fill.position.set(-3,2,-2);
+  scene.add(fill);
 
   const geo=new THREE.BufferGeometry();
   posA=new THREE.BufferAttribute(new Float32Array(MAX*3),3);
@@ -136,19 +210,20 @@ function init(){
   geo.setAttribute('position',posA);
   geo.setAttribute('color',colA);
   geo.setDrawRange(0,0);
-  pts=new THREE.Points(geo,new THREE.PointsMaterial({
-    size:0.018,vertexColors:true,transparent:true,opacity:0.95,
-    blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true
-  }));
+
+  pts=new THREE.Points(geo,makeHoloMat(0.55,0.95,0.42,1.4,0.55));
   scene.add(pts);
+  ptsGlow=new THREE.Points(geo,makeHoloMat(1.35,0.32,0.55,0.6,0.35));
+  scene.add(ptsGlow);
+  setBrightness(brightness);
 
   const g=new THREE.Group();
-  const grid=new THREE.GridHelper(9,26,0x1e3a8a,0x111113);
-  grid.position.y=-1.3;grid.material.opacity=0.28;grid.material.transparent=true;g.add(grid);
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(9,9),new THREE.MeshBasicMaterial({color:0x0a0a0f,transparent:true,opacity:0.5,side:THREE.DoubleSide}));
-  floor.rotation.x=-Math.PI/2;floor.position.y=-1.31;g.add(floor);
-  const frame=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(8.2,4.4,8.2)),new THREE.LineBasicMaterial({color:0x38bdf8,transparent:true,opacity:0.12}));
-  frame.position.y=0.9;g.add(frame);
+  const grid=new THREE.GridHelper(10,28,0x1e3a8a,0x0d0d12);
+  grid.position.y=-1.35;grid.material.opacity=0.22;grid.material.transparent=true;g.add(grid);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(10,10),new THREE.MeshBasicMaterial({color:0x06060a,transparent:true,opacity:0.55,side:THREE.DoubleSide}));
+  floor.rotation.x=-Math.PI/2;floor.position.y=-1.36;g.add(floor);
+  const frame=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(8.5,4.6,8.5)),new THREE.LineBasicMaterial({color:0x38bdf8,transparent:true,opacity:0.10}));
+  frame.position.y=0.95;g.add(frame);
   scene.add(g);
 
   addEventListener('resize',()=>{
@@ -168,19 +243,106 @@ function initCam(){
     $('scanBtn').disabled=true;
     return;
   }
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:'user',width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},
+    audio:false
+  })
   .then(s=>{video.srcObject=s;return video.play()})
   .then(()=>{ready=true;$('status').textContent='Camera ready — tap Start Scanning'})
   .catch(()=>{
-    $('scanBtn').textContent='Camera Blocked';
-    $('scanBtn').disabled=true;
-    $('status').textContent='Allow camera access then reload';
-  });
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false})
+    .then(s=>{video.srcObject=s;return video.play()})
+    .then(()=>{ready=true;$('status').textContent='Camera ready — tap Start Scanning'})
+    .catch(()=>{
+      $('scanBtn').textContent='Camera Blocked';
+      $('scanBtn').disabled=true;
+      $('status').textContent='Allow camera access then reload';
+    });
+  });async function loadNeuralDepth(){
+  if(neuralLoading||neuralReady)return;
+  neuralLoading=true;
+  const st=$('neuralStatus');
+  if(st){st.textContent='Downloading…';st.style.color='var(--orange)'}
+  try{
+    if(!window.__hfPipeline){
+      await new Promise(r=>{
+        if(window.__hfPipeline)return r();
+        window.addEventListener('hf-ready',r,{once:true});
+        setTimeout(r,8000);
+      });
+    }
+    if(!window.__hfPipeline)throw new Error('Transformers.js not available');
+    if(st){st.textContent='Loading model…';st.style.color='var(--orange)'}
+    depthEstimator=await window.__hfPipeline(
+      'depth-estimation',
+      'onnx-community/depth-anything-v2-small',
+      {device:'webgpu'}
+    ).catch(async()=>{
+      return window.__hfPipeline(
+        'depth-estimation',
+        'onnx-community/depth-anything-v2-small',
+        {device:'wasm'}
+      );
+    });
+    neuralReady=true;
+    if(st){st.textContent='Ready ✓';st.style.color='var(--green)'}
+    $('status').textContent='AI Depth ready — scan then Build World';
+  }catch(e){
+    console.warn('Neural depth failed',e);
+    if(st){st.textContent='Classical only';st.style.color='var(--muted)'}
+    $('status').textContent='AI Depth unavailable — using enhanced classical depth';
+  }
+  neuralLoading=false;
+}
+setTimeout(loadNeuralDepth,1200);
+
+async function estimateDepth(sourceCanvas){
+  if(!neuralReady||!depthEstimator)return null;
+  try{
+    const res=await depthEstimator(sourceCanvas);
+    const depthImg=res.depth||res;
+    const dw=depthImg.width, dh=depthImg.height;
+    const data=depthImg.data;
+    const tw=sourceCanvas.width, th=sourceCanvas.height;
+    const out=new Float32Array(tw*th);
+    const samples=[];
+    const stride=Math.max(1,(data.length/4000)|0);
+    for(let i=0;i<data.length;i+=stride) samples.push(+data[i]);
+    samples.sort((a,b)=>a-b);
+    const p5=samples[Math.floor(samples.length*0.05)];
+    const p95=samples[Math.floor(samples.length*0.95)];
+    const range=Math.max(1e-6,p95-p5);
+    for(let y=0;y<th;y++){
+      for(let x=0;x<tw;x++){
+        const sx=Math.min(dw-1,(x+0.5)/tw*dw)|0;
+        const sy=Math.min(dh-1,(y+0.5)/th*dh)|0;
+        let v=(+data[sy*dw+sx]-p5)/range;
+        out[y*tw+x]=Math.min(1,Math.max(0,v));
+      }
+    }
+    let cSum=0,cN=0,bSum=0,bN=0;
+    const cx0=(tw*0.35)|0,cx1=(tw*0.65)|0,cy0=(th*0.3)|0,cy1=(th*0.7)|0;
+    for(let y=0;y<th;y+=4){
+      for(let x=0;x<tw;x+=4){
+        const v=out[y*tw+x];
+        if(x>=cx0&&x<cx1&&y>=cy0&&y<cy1){cSum+=v;cN++;}
+        else if(x<tw*0.12||x>tw*0.88||y<th*0.12||y>th*0.88){bSum+=v;bN++;}
+      }
+    }
+    if(cN>0&&bN>0&&(cSum/cN)>(bSum/bN)+0.04){
+      for(let i=0;i<out.length;i++) out[i]=1-out[i];
+    }
+    return out;
+  }catch(e){
+    console.warn('Depth inference error',e);
+    return null;
+  }
 }
 
 function loop(now){
   if(scanning)ctrl.autoRotate=false;
   ctrl.update();
+  timeUniform.value=now*0.001;
   fc++;
   if(now-ft>1000){$('fps').textContent=Math.round(fc*1000/(now-ft));fc=0;ft=now}
   if(playing)playStep(now);
@@ -195,35 +357,89 @@ function sample(now){
   let pix;try{pix=ctx.getImageData(0,0,w,h).data}catch{return}
   const step=Math.max(1,stepSize|0);
   let n=0;
+  const lumMap=new Float32Array(w*h);
+  for(let i=0,p=0;i<pix.length;i+=4,p++){
+    lumMap[p]=0.299*(pix[i]/255)+0.587*(pix[i+1]/255)+0.114*(pix[i+2]/255);
+  }
   for(let y=0;y<h&&n<MAX;y+=step){
     for(let x=0;x<w&&n<MAX;x+=step){
-      const i=(y*w+x)*4;
-      const r=pix[i]/255,g=pix[i+1]/255,b=pix[i+2]/255;
-      const lum=0.299*r+0.587*g+0.114*b;
-      if(lum<0.03)continue;
-      const d=Math.pow(1-lum,1.5);
+      const p=y*w+x;
+      const lum=lumMap[p];
+      if(lum<0.018)continue;
+      let edge=0, varc=0;
+      if(x>=2*step&&x<w-2*step&&y>=2*step&&y<h-2*step){
+        const l1=lumMap[p-step], r1=lumMap[p+step];
+        const u1=lumMap[p-w*step], d1=lumMap[p+w*step];
+        const l2=lumMap[p-2*step], r2=lumMap[p+2*step];
+        const u2=lumMap[p-2*w*step], d2=lumMap[p+2*w*step];
+        const gx=Math.abs(l1-r1)*1.4 + Math.abs(l2-r2)*0.7;
+        const gy=Math.abs(u1-d1)*1.4 + Math.abs(u2-d2)*0.7;
+        edge=Math.min(1.15,(gx+gy)*2.2);
+        const mean=(l1+r1+u1+d1+lum)*0.2;
+        varc=Math.min(0.45, Math.abs(lum-mean)*3.5);
+      }
+      const invLum=Math.pow(1-lum,1.25);
+      const d=invLum*0.72 + edge*0.48 + varc*0.35
+             - 0.06*((x/w-0.5)*(x/w-0.5)+(y/h-0.5)*(y/h-0.5));
       const idx=n*3;
-      posA.array[idx]=((w-x)/w*2-1)*1.8;
-      posA.array[idx+1]=(-(y/h*2-1))*1.6+0.35;
-      posA.array[idx+2]=(d-0.36)*(depthMul*0.047);
-      // brighter live points
-      colA.array[idx]=Math.min(1,r*1.15);
-      colA.array[idx+1]=Math.min(1,g*1.15);
-      colA.array[idx+2]=Math.min(1,b*1.2);
+      posA.array[idx]  = ((w-x)/w*2-1)*2.15;
+      posA.array[idx+1]= (-(y/h*2-1))*1.85 + 0.28;
+      posA.array[idx+2]= (d-0.28)*(depthMul*0.055);
+      const br=brightness;
+      const i=p*4;
+      let r=pix[i]/255, g=pix[i+1]/255, b=pix[i+2]/255;
+      const avg=(r+g+b)/3;
+      r=avg+(r-avg)*1.18; g=avg+(g-avg)*1.18; b=avg+(b-avg)*1.22;
+      colA.array[idx]  =Math.min(1, r*(1.30*br)+0.05*br);
+      colA.array[idx+1]=Math.min(1, g*(1.30*br)+0.07*br);
+      colA.array[idx+2]=Math.min(1, b*(1.42*br)+0.12*br);
       n++;
     }
   }
-  posA.needsUpdate=true;colA.needsUpdate=true;
+  posA.needsUpdate=true; colA.needsUpdate=true;
   pts.geometry.setDrawRange(0,n);
+  if(ptsGlow) ptsGlow.geometry.setDrawRange(0,n);
   $('nLive').textContent=n.toLocaleString();
-  if(recording&&now-lastCap>=70){
+  if(recording&&now-lastCap>=48){
     lastCap=now;
+    let rgb=null;
+    try{
+      const sw=Math.min(448,w), sh=Math.round(h*(sw/w));
+      const sc=document.createElement('canvas');
+      sc.width=sw;sc.height=sh;
+      sc.getContext('2d').drawImage(c2d,0,0,sw,sh);
+      rgb=sc;
+    }catch(_){}
     frames.push({
       t:now-recStart,n,
       pos:new Float32Array(posA.array.buffer.slice(0,n*12)),
-      col:new Float32Array(colA.array.buffer.slice(0,n*12))
+      col:new Float32Array(colA.array.buffer.slice(0,n*12)),
+      rgb
     });
     $('frameCount').textContent=frames.length;
+  }
+}
+
+function setBrightness(v){
+  brightness = v;
+  const boost = (brightness - 0.6);
+  if(pts && pts.material && pts.material.uniforms){
+    pts.material.uniforms.uSize.value = 0.42 + boost * 0.22;
+    pts.material.uniforms.uOpacity.value = Math.min(1, 0.75 + brightness * 0.14);
+    pts.material.uniforms.uCore.value = 1.1 + boost * 0.5;
+  }
+  if(ptsGlow && ptsGlow.material && ptsGlow.material.uniforms){
+    ptsGlow.material.uniforms.uSize.value = 1.05 + boost * 0.45;
+    ptsGlow.material.uniforms.uOpacity.value = Math.min(0.45, 0.18 + brightness * 0.12);
+  }
+  if(env && env.material && env.material.uniforms){
+    env.material.uniforms.uSize.value = 0.48 + boost * 0.25;
+    env.material.uniforms.uOpacity.value = Math.min(1, 0.78 + brightness * 0.12);
+    env.material.uniforms.uCore.value = 1.2 + boost * 0.55;
+  }
+  if(glow && glow.material && glow.material.uniforms){
+    glow.material.uniforms.uSize.value = 1.2 + boost * 0.5;
+    glow.material.uniforms.uOpacity.value = Math.min(0.5, 0.22 + brightness * 0.13);
   }
 }
 
@@ -240,6 +456,7 @@ function toggleScan(){
     btn.textContent='Start Scanning';
     btn.className='red';
     pts.geometry.setDrawRange(0,0);
+    if(ptsGlow) ptsGlow.geometry.setDrawRange(0,0);
     $('nLive').textContent='0';
     if(!playing)ctrl.autoRotate=true;
     $('status').textContent='';
@@ -318,6 +535,7 @@ function stopPlay(){
   $('recStatus').textContent='Ready';
   $('recStatus').style.color='var(--muted)';
   pts.geometry.setDrawRange(0,0);
+  if(ptsGlow) ptsGlow.geometry.setDrawRange(0,0);
   $('nLive').textContent='0';
   ctrl.autoRotate=!scanning;
 }
@@ -330,21 +548,23 @@ function playStep(now){
   posA.needsUpdate=true;
   colA.needsUpdate=true;
   pts.geometry.setDrawRange(0,f.n);
+  if(ptsGlow) ptsGlow.geometry.setDrawRange(0,f.n);
   $('nLive').textContent=f.n.toLocaleString();
   pIdx=(pIdx+1)%frames.length;
 }
-
-function finalize(pos,col){
+}function finalize(pos,col){
   if(pos.length<800)return $('status').textContent='Need more data — scan longer';
   if(env){scene.remove(env);env.geometry.dispose();env.material.dispose()}
   if(glow){scene.remove(glow);glow.geometry.dispose();glow.material.dispose()}
 
-  // Brighter color grade
+  const br = brightness;
   for(let i=0;i<col.length;i+=3){
     let r=col[i],g=col[i+1],b=col[i+2];
-    r=Math.min(1,r*1.05+0.08);
-    g=Math.min(1,g*1.08+0.12);
-    b=Math.min(1,b*1.12+0.18);
+    const avg=(r+g+b)/3;
+    r=avg+(r-avg)*1.22; g=avg+(g-avg)*1.22; b=avg+(b-avg)*1.28;
+    r=Math.min(1, r*(1.22*br) + 0.12*br);
+    g=Math.min(1, g*(1.25*br) + 0.15*br);
+    b=Math.min(1, b*(1.38*br) + 0.22*br);
     col[i]=r;col[i+1]=g;col[i+2]=b;
   }
 
@@ -354,19 +574,11 @@ function finalize(pos,col){
   geo.setAttribute('position',new THREE.BufferAttribute(ePos,3));
   geo.setAttribute('color',new THREE.BufferAttribute(eCol,3));
 
-  // Main layer – brighter & more visible
-  env=new THREE.Points(geo,new THREE.PointsMaterial({
-    size:0.019,vertexColors:true,transparent:true,opacity:0.92,
-    blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true
-  }));
+  env=new THREE.Points(geo,makeHoloMat(0.58,0.95,0.40,1.5,0.6));
   env.position.y=0.28;
   scene.add(env);
 
-  // Stronger glow
-  glow=new THREE.Points(geo.clone(),new THREE.PointsMaterial({
-    size:0.042,vertexColors:true,transparent:true,opacity:0.22,
-    blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true
-  }));
+  glow=new THREE.Points(geo.clone(),makeHoloMat(1.45,0.36,0.58,0.7,0.4));
   glow.position.y=0.28;
   scene.add(glow);
 
@@ -377,101 +589,203 @@ function finalize(pos,col){
   $('buildSeq').disabled=!frames.length;
   $('buildVid').disabled=!videoBlob;
   $('status').textContent='World ready ✨';
-  cam.position.set(0,1.6,5.8);
-  ctrl.target.set(0,0.4,0);
+  cam.position.set(0,1.55,5.6);
+  ctrl.target.set(0,0.35,0);
   ctrl.autoRotate=true;
+  setBrightness(brightness);
 }
 
-function buildSeq(){
+async function buildSeq(){
   if(!frames.length)return;
   if(playing)stopPlay();
-  $('status').textContent='Building world…';
-  const TARGET=120000,maxF=Math.min(frames.length,60);
+  $('buildSeq').disabled=true;
+  const TARGET=320000;
+  const pos=[],col=[];
+  const useAI=neuralReady&&frames.some(f=>f.rgb);
+  const maxF=Math.min(frames.length, useAI?36:100);
   const step=Math.max(1,Math.floor(frames.length/maxF));
-  const pos=[],col=[],spread=3.2;
-  for(let i=0;i<frames.length;i+=step){
-    const f=frames[i];
-    const z=((i/Math.max(1,frames.length-1))-0.5)*spread;
-    const keep=Math.min(1,(TARGET/frames.length)/Math.max(1,f.n)*1.25);
-    for(let p=0;p<f.n;p++){
-      if(Math.random()>keep)continue;
-      const j=p*3,k=0.007;
-      pos.push(f.pos[j]+(Math.random()-0.5)*k,f.pos[j+1]+(Math.random()-0.5)*k,f.pos[j+2]+z+(Math.random()-0.5)*k);
-      col.push(f.col[j],f.col[j+1],f.col[j+2]);
+  const spread=useAI?1.2:4.8;
+
+  if(useAI){
+    $('status').textContent='AI Depth reconstructing… 0%';
+    let done=0, total=0;
+    for(let i=0;i<frames.length;i+=step) total++;
+    for(let i=0;i<frames.length;i+=step){
+      const f=frames[i];
+      const zOff=((i/Math.max(1,frames.length-1))-0.5)*spread;
+      if(f.rgb){
+        const depth=await estimateDepth(f.rgb);
+        if(depth){
+          const sw=f.rgb.width, sh=f.rgb.height;
+          const tctx=f.rgb.getContext('2d',{willReadFrequently:true});
+          let pix; try{pix=tctx.getImageData(0,0,sw,sh).data}catch{pix=null}
+          const st=Math.max(1, Math.floor(Math.min(sw,sh)/220));
+          const keepBudget=Math.ceil(TARGET/total*1.15);
+          let added=0;
+          for(let y=0;y<sh&&added<keepBudget;y+=st){
+            for(let x=0;x<sw&&added<keepBudget;x+=st){
+              const di=y*sw+x;
+              const dVal=depth[di];
+              if(dVal>0.92||dVal<0.02)continue;
+              if(!pix)continue;
+              const pi=di*4;
+              const r=pix[pi]/255,g=pix[pi+1]/255,b=pix[pi+2]/255;
+              const lum=0.299*r+0.587*g+0.114*b;
+              if(lum<0.012)continue;
+              let conf=1;
+              if(x>=st&&x<sw-st&&y>=st&&y<sh-st){
+                const gx=Math.abs(depth[di-st]-depth[di+st]);
+                const gy=Math.abs(depth[di-sw*st]-depth[di+sw*st]);
+                conf=0.55+Math.min(0.45,(gx+gy)*4);
+              }
+              if(Math.random()>conf)continue;
+              const px=((sw-x)/sw*2-1)*2.2;
+              const py=(-(y/sh*2-1))*1.9+0.25;
+              const pz=(dVal-0.35)*(depthMul*0.07)+zOff;
+              const k=0.005;
+              pos.push(px+(Math.random()-0.5)*k, py+(Math.random()-0.5)*k, pz+(Math.random()-0.5)*k);
+              const br=brightness, avg=(r+g+b)/3;
+              col.push(
+                Math.min(1,(avg+(r-avg)*1.22)*(1.28*br)+0.04*br),
+                Math.min(1,(avg+(g-avg)*1.22)*(1.28*br)+0.06*br),
+                Math.min(1,(avg+(b-avg)*1.28)*(1.40*br)+0.10*br)
+              );
+              added++;
+            }
+          }
+        } else {
+          mergeFramePoints(f,zOff,pos,col,TARGET);
+        }
+      } else {
+        mergeFramePoints(f,zOff,pos,col,TARGET);
+      }
+      done++;
+      $('status').textContent=`AI Depth reconstructing… ${Math.round(done/total*100)}%`;
+      if(pos.length/3>=TARGET)break;
+      await new Promise(r=>setTimeout(r,8));
+    }
+  } else {
+    $('status').textContent='Building world (classical)…';
+    for(let i=0;i<frames.length;i+=step){
+      const f=frames[i];
+      const z=((i/Math.max(1,frames.length-1))-0.5)*spread;
+      mergeFramePoints(f,z,pos,col,TARGET);
       if(pos.length/3>=TARGET)break;
     }
-    if(pos.length/3>=TARGET)break;
   }
+  $('buildSeq').disabled=false;
   finalize(pos,col);
 }
 
-function buildVid(){
+function mergeFramePoints(f,zOff,pos,col,TARGET){
+  const keep=Math.min(1,(TARGET/Math.max(1,frames.length))/Math.max(1,f.n)*1.7);
+  for(let p=0;p<f.n;p++){
+    if(Math.random()>keep)continue;
+    const j=p*3,k=0.01;
+    pos.push(f.pos[j]+(Math.random()-0.5)*k,
+             f.pos[j+1]+(Math.random()-0.5)*k,
+             f.pos[j+2]+zOff+(Math.random()-0.5)*k*1.3);
+    col.push(f.col[j],f.col[j+1],f.col[j+2]);
+    if(pos.length/3>=TARGET)break;
+  }
+}
+
+async function buildVid(){
   if(!videoBlob)return alert('No video yet');
   if(playing)stopPlay();
-  $('status').textContent='Processing video…';
+  $('status').textContent=neuralReady?'AI Depth on video…':'Processing video…';
   $('buildVid').disabled=true;
   const v=document.createElement('video');
   v.muted=true;v.playsInline=true;
   v.src=URL.createObjectURL(videoBlob);
   const c=document.createElement('canvas');
   const x=c.getContext('2d',{willReadFrequently:true});
-  const collected=[];
-  v.onloadedmetadata=()=>{
-    const dur=Math.max(0.1,v.duration);
-    let t=0;
-    const stepT=0.09;
-    const next=()=>{
-      if(t>dur){
-        URL.revokeObjectURL(v.src);
-        const TARGET=120000,pos=[],col=[],spread=3.2;
-        const step=Math.max(1,Math.floor(collected.length/55));
-        for(let i=0;i<collected.length;i+=step){
-          const f=collected[i];
-          const z=((i/Math.max(1,collected.length-1))-0.5)*spread;
-          const keep=Math.min(1,(TARGET/collected.length)/Math.max(1,f.n)*1.25);
-          for(let p=0;p<f.n;p++){
-            if(Math.random()>keep)continue;
-            const j=p*3,k=0.007;
-            pos.push(f.pos[j]+(Math.random()-0.5)*k,f.pos[j+1]+(Math.random()-0.5)*k,f.pos[j+2]+z+(Math.random()-0.5)*k);
-            col.push(f.col[j],f.col[j+1],f.col[j+2]);
-            if(pos.length/3>=TARGET)break;
-          }
-          if(pos.length/3>=TARGET)break;
-        }
-        finalize(pos,col);
-        return;
-      }
+
+  await new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=rej;v.load();});
+  const dur=Math.max(0.1,v.duration);
+  const stepT=neuralReady?0.12:0.07;
+  const times=[];
+  for(let t=0;t<=dur;t+=stepT) times.push(Math.min(t,dur));
+  const TARGET=300000;
+  const pos=[],col=[];
+  const spread=neuralReady?3.6:4.8;
+  const perFrame=Math.ceil(TARGET/Math.max(1,times.length));
+
+  for(let ti=0;ti<times.length;ti++){
+    const t=times[ti];
+    await new Promise(r=>{
+      v.onseeked=()=>r();
       v.currentTime=t;
-    };
-    v.onseeked=()=>{
-      const w=v.videoWidth||640,h=v.videoHeight||480;
-      c.width=w;c.height=h;
-      x.drawImage(v,0,0,w,h);
-      let pix;try{pix=x.getImageData(0,0,w,h).data}catch{t+=stepT;next();return}
-      const step=Math.max(2,stepSize|0);
-      const p=[],cl=[];
-      let n=0;
-      for(let y=0;y<h&&n<22000;y+=step){
-        for(let xx=0;xx<w&&n<22000;xx+=step){
-          const i=(y*w+xx)*4;
+    });
+    const w=v.videoWidth||640,h=v.videoHeight||480;
+    c.width=w;c.height=h;
+    x.drawImage(v,0,0,w,h);
+    let pix;try{pix=x.getImageData(0,0,w,h).data}catch{continue}
+    const zOff=((ti/Math.max(1,times.length-1))-0.5)*spread;
+    let depth=null;
+    if(neuralReady){
+      const sw=Math.min(384,w), sh=Math.round(h*(sw/w));
+      const sc=document.createElement('canvas');
+      sc.width=sw;sc.height=sh;
+      sc.getContext('2d').drawImage(c,0,0,sw,sh);
+      depth=await estimateDepth(sc);
+    }
+    const st=Math.max(1,stepSize|0);
+    let added=0;
+    if(depth){
+      const sw=Math.min(384,w), sh=Math.round(h*(sw/w));
+      for(let y=0;y<sh&&added<perFrame;y+=st){
+        for(let xx=0;xx<sw&&added<perFrame;xx+=st){
+          const dVal=depth[y*sw+xx];
+          if(dVal<0.02||dVal>0.92)continue;
+          const ox=Math.min(w-1,(xx/sw)*w)|0;
+          const oy=Math.min(h-1,(y/sh)*h)|0;
+          const i=(oy*w+ox)*4;
           const r=pix[i]/255,g=pix[i+1]/255,b=pix[i+2]/255;
           const lum=0.299*r+0.587*g+0.114*b;
-          if(lum<0.03)continue;
-          const d=Math.pow(1-lum,1.5);
-          p.push(((w-xx)/w*2-1)*1.8,(-(y/h*2-1))*1.6+0.35,(d-0.36)*(depthMul*0.047));
-          cl.push(Math.min(1,r*1.1),Math.min(1,g*1.1),Math.min(1,b*1.15));
-          n++;
+          if(lum<0.015)continue;
+          const px=((w-ox)/w*2-1)*2.2;
+          const py=(-(oy/h*2-1))*1.9+0.25;
+          const pz=(dVal-0.35)*(depthMul*0.07)+zOff;
+          const k=0.008;
+          pos.push(px+(Math.random()-0.5)*k,py+(Math.random()-0.5)*k,pz+(Math.random()-0.5)*k);
+          const br=brightness, avg=(r+g+b)/3;
+          col.push(
+            Math.min(1,(avg+(r-avg)*1.2)*(1.28*br)+0.04*br),
+            Math.min(1,(avg+(g-avg)*1.2)*(1.28*br)+0.06*br),
+            Math.min(1,(avg+(b-avg)*1.25)*(1.4*br)+0.10*br)
+          );
+          added++;
         }
       }
-      if(n>40)collected.push({n,pos:new Float32Array(p),col:new Float32Array(cl)});
-      const pct=Math.min(100,Math.round(t/dur*100));
-      $('status').textContent=`Building… ${isFinite(pct)?pct:0}%`;
-      t+=stepT;
-      next();
-    };
-    next();
-  };
-  v.load();
+    } else {
+      const lumMap=new Float32Array(w*h);
+      for(let i=0,pp=0;i<pix.length;i+=4,pp++)
+        lumMap[pp]=0.299*(pix[i]/255)+0.587*(pix[i+1]/255)+0.114*(pix[i+2]/255);
+      for(let y=0;y<h&&added<perFrame;y+=st){
+        for(let xx=0;xx<w&&added<perFrame;xx+=st){
+          const pp=y*w+xx, lum=lumMap[pp];
+          if(lum<0.018)continue;
+          let edge=0;
+          if(xx>=2*st&&xx<w-2*st&&y>=2*st&&y<h-2*st){
+            const gx=Math.abs(lumMap[pp-st]-lumMap[pp+st]);
+            const gy=Math.abs(lumMap[pp-w*st]-lumMap[pp+w*st]);
+            edge=Math.min(1.15,(gx+gy)*2.2);
+          }
+          const d=Math.pow(1-lum,1.25)*0.72+edge*0.48;
+          pos.push(((w-xx)/w*2-1)*2.15,(-(y/h*2-1))*1.85+0.28,(d-0.28)*(depthMul*0.055)+zOff);
+          const i=pp*4,r=pix[i]/255,g=pix[i+1]/255,b=pix[i+2]/255,br=brightness;
+          col.push(Math.min(1,r*1.3*br+0.05*br),Math.min(1,g*1.3*br+0.07*br),Math.min(1,b*1.4*br+0.12*br));
+          added++;
+        }
+      }
+    }
+    $('status').textContent=`${neuralReady?'AI Depth':'Building'}… ${Math.round((ti+1)/times.length*100)}%`;
+    if(pos.length/3>=TARGET)break;
+  }
+  URL.revokeObjectURL(v.src);
+  $('buildVid').disabled=false;
+  finalize(pos,col);
 }
 
 function saveEnv(){
@@ -498,6 +812,7 @@ function shareEnv(){
   if(playing)stopPlay();
   if(scanning)toggleScan();
   pts.geometry.setDrawRange(0,0);
+  if(ptsGlow) ptsGlow.geometry.setDrawRange(0,0);
   eChunks=[];
   const opt={mimeType:'video/webm;codecs=vp9',videoBitsPerSecond:9000000};
   if(!MediaRecorder.isTypeSupported(opt.mimeType))opt.mimeType='video/webm';
