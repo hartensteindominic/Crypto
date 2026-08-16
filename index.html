@@ -1,0 +1,2362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>HyperStream Advanced</title>
+
+<style>
+:root{
+  --bg:#000;
+  --panel:rgba(16,16,18,.86);
+  --line:rgba(255,255,255,.12);
+  --text:#fff;
+  --muted:#929298;
+  --blue:#0a84ff;
+  --green:#30d158;
+  --red:#ff375f;
+  --orange:#ff9f0a;
+  --purple:#bf5af2;
+}
+
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+  -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#000;
+  color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+}
+
+#canvas{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+}
+
+#camera{
+  display:none;
+}
+
+.top{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:20;
+  padding:calc(14px + env(safe-area-inset-top)) 16px 10px;
+  display:flex;
+  justify-content:space-between;
+  pointer-events:none;
+}
+
+.logo{
+  font-weight:800;
+  font-size:17px;
+}
+
+.logo span{
+  color:var(--purple);
+  font-size:11px;
+}
+
+.status{
+  font-size:11px;
+  color:#ddd;
+  background:rgba(0,0,0,.55);
+  border-radius:20px;
+  padding:7px 11px;
+  backdrop-filter:blur(18px);
+}
+
+#status{
+  color:var(--green);
+}
+
+.controls{
+  position:fixed;
+  z-index:30;
+  left:10px;
+  right:10px;
+  bottom:calc(10px + env(safe-area-inset-bottom));
+  padding:8px;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:6px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:19px;
+  backdrop-filter:blur(28px);
+}
+
+button{
+  min-width:0;
+  border:0;
+  border-radius:12px;
+  min-height:43px;
+  padding:7px 4px;
+  color:#fff;
+  font:700 11px system-ui,sans-serif;
+  cursor:pointer;
+}
+
+button:active{
+  transform:scale(.96);
+}
+
+.blue{background:var(--blue)}
+.green{background:var(--green);color:#000}
+.red{background:var(--red)}
+.orange{background:var(--orange);color:#000}
+.purple{
+  background:linear-gradient(135deg,var(--purple),var(--red));
+}
+.dark{background:#2c2c2e}
+
+.deviceBar{
+  position:fixed;
+  z-index:15;
+  top:58px;
+  left:50%;
+  transform:translateX(-50%);
+  padding:6px 10px;
+  border-radius:20px;
+  background:rgba(0,0,0,.48);
+  backdrop-filter:blur(16px);
+  color:#aaa;
+  font-size:10px;
+  white-space:nowrap;
+}
+
+.modal{
+  position:fixed;
+  inset:0;
+  z-index:100;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(0,0,0,.78);
+  backdrop-filter:blur(15px);
+}
+
+.modal.open{
+  display:flex;
+}
+
+.card{
+  width:min(400px,100%);
+  max-height:90vh;
+  overflow:auto;
+  background:#1c1c1e;
+  border:1px solid var(--line);
+  border-radius:24px;
+  padding:20px;
+}
+
+.card h2{
+  margin-bottom:7px;
+}
+
+.card p{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.45;
+}
+
+.qr{
+  width:230px;
+  height:230px;
+  margin:18px auto;
+  padding:9px;
+  background:#fff;
+  border-radius:18px;
+}
+
+.qr img{
+  width:100%;
+  height:100%;
+}
+
+.code{
+  text-align:center;
+  font-size:25px;
+  font-weight:800;
+  letter-spacing:5px;
+  margin-bottom:15px;
+}
+
+.modalGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+}
+
+#phoneScreen{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  display:none;
+  background:#000;
+}
+
+#phoneScreen.active{
+  display:block;
+}
+
+#phoneVideo{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.phoneShade{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  padding:25px 14px calc(18px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,rgba(0,0,0,.92));
+}
+
+.phoneTitle{
+  font-size:18px;
+  font-weight:800;
+  margin-bottom:5px;
+}
+
+.phoneSub{
+  color:#bbb;
+  font-size:12px;
+  margin-bottom:12px;
+}
+
+.phoneButtons{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.close{
+  position:absolute;
+  right:15px;
+  top:calc(15px + env(safe-area-inset-top));
+  z-index:5;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  padding:0;
+  background:rgba(0,0,0,.55);
+  font-size:25px;
+}
+
+#playback{
+  position:fixed;
+  inset:8%;
+  width:84%;
+  height:84%;
+  z-index:150;
+  display:none;
+  background:#000;
+  border-radius:18px;
+  box-shadow:0 20px 80px #000;
+}
+
+#playback.show{
+  display:block;
+}
+
+.hidden{
+  display:none!important;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+<video id="camera" playsinline muted></video>
+
+<div class="top">
+  <div class="logo">
+    HyperStream <span>ADVANCED</span>
+  </div>
+
+  <div class="status" id="status">
+    Ready
+  </div>
+</div>
+
+<div class="deviceBar" id="devices">
+  Host ● &nbsp; Phone ○ &nbsp; Quest ○
+</div>
+
+<!-- SIMPLE CONTROLS -->
+
+<div class="controls">
+
+  <button class="blue" onclick="connect()">
+    CONNECT
+  </button>
+
+  <button class="red" id="scanButton" onclick="scan()">
+    SCAN
+  </button>
+
+  <button class="green" id="recordButton" onclick="record()">
+    RECORD
+  </button>
+
+  <button class="purple" onclick="build()">
+    BUILD
+  </button>
+
+  <button class="dark" onclick="playRecording()">
+    ▶ PLAY
+  </button>
+
+</div>
+
+<!-- CONNECT MODAL -->
+
+<div class="modal" id="connectModal">
+
+  <div class="card">
+
+    <h2>Connect Device</h2>
+
+    <p>
+      Scan this QR code with your iPhone or Quest.
+      The device will join this HyperStream session.
+    </p>
+
+    <div class="qr">
+      <img id="qr">
+    </div>
+
+    <div class="code" id="pairCode">
+      ------
+    </div>
+
+    <div class="modalGrid">
+
+      <button class="dark"
+              onclick="closeConnect()">
+        Close
+      </button>
+
+      <button class="blue"
+              onclick="copyLink()">
+        Copy Link
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- PHONE MODE -->
+
+<div id="phoneScreen">
+
+  <video
+    id="phoneVideo"
+    autoplay
+    playsinline
+    muted>
+  </video>
+
+  <button
+    class="close"
+    onclick="closePhone()">
+    ×
+  </button>
+
+  <div class="phoneShade">
+
+    <div class="phoneTitle">
+      HyperStream Scanner
+    </div>
+
+    <div class="phoneSub"
+         id="phoneStatus">
+      Starting camera…
+    </div>
+
+    <div class="phoneButtons">
+
+      <button
+        class="green"
+        id="phoneRecord"
+        onclick="phoneRecord()">
+        ● RECORD
+      </button>
+
+      <button
+        class="blue"
+        onclick="sendSpatialFrame()">
+        SCAN FRAME
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- VIDEO PLAYBACK -->
+
+<video
+  id="playback"
+  controls
+  playsinline>
+</video>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script>
+
+/* =========================================================
+   HYPERSTREAM ADVANCED
+========================================================= */
+
+"use strict";
+
+const $ = id => document.getElementById(id);
+
+let scene;
+let camera3D;
+let renderer;
+let controls;
+
+let peer;
+let connection;
+
+let hostId = null;
+let isPhone = false;
+let isQuest = false;
+
+let stream = null;
+
+let scanning = false;
+let recording = false;
+
+let mediaRecorder = null;
+let recordedChunks = [];
+
+let recordingBlob = null;
+
+let frames = [];
+
+let livePoints;
+let worldPoints;
+
+const MAX_POINTS = 100000;
+
+let positions =
+  new Float32Array(MAX_POINTS * 3);
+
+let colors =
+  new Float32Array(MAX_POINTS * 3);
+
+let liveCount = 0;
+
+let scanCanvas =
+  document.createElement("canvas");
+
+let scanCtx =
+  scanCanvas.getContext(
+    "2d",
+    {willReadFrequently:true}
+  );
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+function status(text){
+
+  $("status").textContent = text;
+
+}
+
+
+/* =========================================================
+   THREE
+========================================================= */
+
+function init3D(){
+
+  scene =
+    new THREE.Scene();
+
+  camera3D =
+    new THREE.PerspectiveCamera(
+      55,
+      innerWidth / innerHeight,
+      .01,
+      500
+    );
+
+  camera3D.position.set(
+    0,
+    1,
+    7
+  );
+
+  renderer =
+    new THREE.WebGLRenderer({
+      canvas:$("canvas"),
+      antialias:true,
+      powerPreference:"high-performance"
+    });
+
+  renderer.setPixelRatio(
+    Math.min(devicePixelRatio || 1,1.6)
+  );
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+
+  controls =
+    new THREE.OrbitControls(
+      camera3D,
+      renderer.domElement
+    );
+
+  controls.enableDamping=true;
+  controls.dampingFactor=.07;
+
+  controls.autoRotate=true;
+  controls.autoRotateSpeed=.2;
+
+  const geo =
+    new THREE.BufferGeometry();
+
+  geo.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+  geo.setAttribute(
+    "color",
+    new THREE.BufferAttribute(
+      colors,
+      3
+    )
+  );
+
+  geo.setDrawRange(0,0);
+
+  const mat =
+    new THREE.PointsMaterial({
+      size:.045,
+      vertexColors:true,
+      transparent:true,
+      opacity:.95,
+      depthWrite:false,
+      blending:THREE.AdditiveBlending,
+      sizeAttenuation:true
+    });
+
+  livePoints =
+    new THREE.Points(
+      geo,
+      mat
+    );
+
+  scene.add(livePoints);
+
+
+  addEventListener(
+    "resize",
+    ()=>{
+
+      camera3D.aspect =
+        innerWidth / innerHeight;
+
+      camera3D.updateProjectionMatrix();
+
+      renderer.setSize(
+        innerWidth,
+        innerHeight
+      );
+
+    }
+  );
+
+
+  renderer.setAnimationLoop(
+    ()=>{
+
+      controls.update();
+
+      renderer.render(
+        scene,
+        camera3D
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   CAMERA
+========================================================= */
+
+async function startCamera(videoElement){
+
+  try{
+
+    stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video:{
+          facingMode:{
+            ideal:"environment"
+          },
+
+          width:{
+            ideal:1920
+          },
+
+          height:{
+            ideal:1080
+          }
+        },
+
+        audio:false
+
+      });
+
+    videoElement.srcObject =
+      stream;
+
+    await videoElement.play();
+
+    return true;
+
+  }catch(e){
+
+    console.error(e);
+
+    status(
+      "Camera permission required"
+    );
+
+    return false;
+
+  }
+
+}
+
+
+/* =========================================================
+   HOST SCAN
+========================================================= */
+
+async function scan(){
+
+  if(!scanning){
+
+    const ok =
+      await startCamera(
+        $("camera")
+      );
+
+    if(!ok)
+      return;
+
+    scanning=true;
+
+    $("scanButton").textContent =
+      "STOP";
+
+    status(
+      "Scanning environment"
+    );
+
+    scanLoop();
+
+  }else{
+
+    scanning=false;
+
+    $("scanButton").textContent =
+      "SCAN";
+
+    status(
+      "Scan stopped"
+    );
+
+  }
+
+}
+
+
+function scanLoop(){
+
+  if(!scanning)
+    return;
+
+  analyzeVideo(
+    $("camera"),
+    "host"
+  );
+
+  requestAnimationFrame(
+    scanLoop
+  );
+
+}
+
+
+/* =========================================================
+   IMAGE → DEPTH POINTS
+========================================================= */
+
+function analyzeVideo(video,source){
+
+  if(
+    !video.videoWidth ||
+    video.readyState < 2
+  )
+    return;
+
+  const maxWidth=280;
+
+  const scale =
+    Math.min(
+      1,
+      maxWidth/video.videoWidth
+    );
+
+  const w =
+    Math.max(
+      32,
+      Math.round(
+        video.videoWidth*scale
+      )
+    );
+
+  const h =
+    Math.max(
+      24,
+      Math.round(
+        video.videoHeight*scale
+      )
+    );
+
+  if(
+    scanCanvas.width!==w ||
+    scanCanvas.height!==h
+  ){
+
+    scanCanvas.width=w;
+    scanCanvas.height=h;
+
+  }
+
+  scanCtx.drawImage(
+    video,
+    0,
+    0,
+    w,
+    h
+  );
+
+  const image =
+    scanCtx.getImageData(
+      0,
+      0,
+      w,
+      h
+    );
+
+  const p=image.data;
+
+  let count=0;
+
+  for(
+    let y=2;
+    y<h-2;
+    y+=2
+  ){
+
+    for(
+      let x=2;
+      x<w-2;
+      x+=2
+    ){
+
+      if(
+        count>=MAX_POINTS
+      )
+        break;
+
+      const i =
+        (y*w+x)*4;
+
+      const r =
+        p[i]/255;
+
+      const g =
+        p[i+1]/255;
+
+      const b =
+        p[i+2]/255;
+
+      const lum =
+        .299*r+
+        .587*g+
+        .114*b;
+
+      if(
+        lum<.025 ||
+        lum>.99
+      )
+        continue;
+
+
+      /*
+       * Edge strength.
+       * This makes geometry concentrate
+       * around visible structure rather
+       * than producing a uniform cloud.
+       */
+
+      const l =
+        (
+          .299*p[i-4]+
+          .587*p[i-3]+
+          .114*p[i-2]
+        )/255;
+
+      const rr =
+        (
+          .299*p[i+4]+
+          .587*p[i+5]+
+          .114*p[i+6]
+        )/255;
+
+      const edge =
+        Math.min(
+          1,
+          Math.abs(l-rr)*4
+        );
+
+
+      /*
+       * Camera-derived depth estimate.
+       * Darker regions are placed farther
+       * away and edges receive additional
+       * spatial separation.
+       */
+
+      const depth =
+        (
+          Math.pow(
+            1-lum,
+            1.4
+          )*.55+
+          edge*.75
+        );
+
+
+      const j=count*3;
+
+      positions[j] =
+        (x/w-.5)*5;
+
+      positions[j+1] =
+        (.5-y/h)*3.5;
+
+      positions[j+2] =
+        (depth-.35)*5;
+
+
+      colors[j]=r;
+      colors[j+1]=g;
+      colors[j+2]=b;
+
+      count++;
+
+    }
+
+  }
+
+
+  liveCount=count;
+
+  livePoints.geometry.setDrawRange(
+    0,
+    count
+  );
+
+  livePoints.geometry.attributes
+    .position.needsUpdate=true;
+
+  livePoints.geometry.attributes
+    .color.needsUpdate=true;
+
+
+  /*
+   * Save spatial snapshot when recording.
+   */
+
+  if(recording){
+
+    frames.push({
+
+      source,
+
+      positions:
+        Array.from(
+          positions.slice(
+            0,
+            count*3
+          )
+        ),
+
+      colors:
+        Array.from(
+          colors.slice(
+            0,
+            count*3
+          )
+        )
+
+    });
+
+    if(frames.length>180)
+      frames.shift();
+
+  }
+
+
+  /*
+   * Send periodic spatial data.
+   */
+
+  if(
+    source==="host" &&
+    connection &&
+    connection.open
+  ){
+
+    connection.send({
+
+      type:"spatial",
+
+      source:"host",
+
+      positions:
+        Array.from(
+          positions.slice(
+            0,
+            Math.min(count,5000)*3
+          )
+        ),
+
+      colors:
+        Array.from(
+          colors.slice(
+            0,
+            Math.min(count,5000)*3
+          )
+        )
+
+    });
+
+  }
+
+}
+
+
+/* =========================================================
+   RECORD
+========================================================= */
+
+async function record(){
+
+  if(recording){
+
+    stopRecording();
+
+    return;
+
+  }
+
+
+  if(
+    !stream ||
+    !$("camera").srcObject
+  ){
+
+    const ok =
+      await startCamera(
+        $("camera")
+      );
+
+    if(!ok)
+      return;
+
+  }
+
+
+  frames=[];
+
+  recordedChunks=[];
+
+  let mime="";
+
+  const choices=[
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm"
+  ];
+
+  for(
+    const type of choices
+  ){
+
+    if(
+      MediaRecorder.isTypeSupported(type)
+    ){
+
+      mime=type;
+      break;
+
+    }
+
+  }
+
+
+  try{
+
+    mediaRecorder =
+      new MediaRecorder(
+        stream,
+        mime
+          ? {mimeType:mime}
+          : undefined
+      );
+
+  }catch(e){
+
+    status(
+      "Video recording unsupported"
+    );
+
+    return;
+
+  }
+
+
+  mediaRecorder.ondataavailable =
+    event=>{
+
+      if(
+        event.data &&
+        event.data.size
+      ){
+
+        recordedChunks.push(
+          event.data
+        );
+
+      }
+
+    };
+
+
+  mediaRecorder.onstop =
+    ()=>{
+
+      recordingBlob =
+        new Blob(
+          recordedChunks,
+          {
+            type:
+              mime ||
+              "video/webm"
+          }
+        );
+
+      const url =
+        URL.createObjectURL(
+          recordingBlob
+        );
+
+      $("playback").src=url;
+
+      $("playback").classList.add(
+        "show"
+      );
+
+      status(
+        "Recording ready"
+      );
+
+
+      /*
+       * Send the finished video
+       * to the host in chunks.
+       */
+
+      if(
+        connection &&
+        connection.open
+      ){
+
+        sendVideo(
+          recordingBlob
+        );
+
+      }
+
+    };
+
+
+  mediaRecorder.start(
+    500
+  );
+
+  recording=true;
+
+  $("recordButton").textContent =
+    "STOP";
+
+  $("recordButton").className =
+    "red";
+
+  status(
+    "Recording + spatial scan"
+  );
+
+}
+
+
+function stopRecording(){
+
+  if(
+    mediaRecorder &&
+    mediaRecorder.state!=="inactive"
+  ){
+
+    mediaRecorder.stop();
+
+  }
+
+  recording=false;
+
+  $("recordButton").textContent =
+    "RECORD";
+
+  $("recordButton").className =
+    "green";
+
+}
+
+
+/* =========================================================
+   VIDEO TRANSFER
+========================================================= */
+
+async function sendVideo(blob){
+
+  if(
+    !connection ||
+    !connection.open
+  )
+    return;
+
+  const buffer =
+    await blob.arrayBuffer();
+
+  const chunkSize=16000;
+
+  connection.send({
+
+    type:"videoStart",
+
+    mime:blob.type,
+
+    size:buffer.byteLength
+
+  });
+
+
+  for(
+    let i=0;
+    i<buffer.byteLength;
+    i+=chunkSize
+  ){
+
+    const chunk =
+      buffer.slice(
+        i,
+        Math.min(
+          i+chunkSize,
+          buffer.byteLength
+        )
+      );
+
+    connection.send({
+
+      type:"videoChunk",
+
+      data:Array.from(
+        new Uint8Array(chunk)
+      )
+
+    });
+
+    /*
+     * Yield to the browser so
+     * large recordings don't lock
+     * up the UI.
+     */
+
+    await new Promise(
+      r=>setTimeout(r,2)
+    );
+
+  }
+
+
+  connection.send({
+    type:"videoEnd"
+  });
+
+}
+
+
+/* =========================================================
+   BUILD HOLOGRAM
+========================================================= */
+
+async function build(){
+
+  if(!frames.length){
+
+    status(
+      "Scan or record first"
+    );
+
+    return;
+
+  }
+
+
+  status(
+    "Building hologram…"
+  );
+
+
+  /*
+   * Clear previous world.
+   */
+
+  if(worldPoints){
+
+    scene.remove(
+      worldPoints
+    );
+
+    worldPoints.geometry.dispose();
+
+  }
+
+
+  const allPos=[];
+  const allCol=[];
+
+  const limit=
+    Math.min(
+      frames.length,
+      120
+    );
+
+  const stride =
+    Math.max(
+      1,
+      Math.floor(
+        frames.length/limit
+      )
+    );
+
+
+  let frameIndex=0;
+
+
+  for(
+    let fi=0;
+    fi<frames.length;
+    fi+=stride
+  ){
+
+    const f=frames[fi];
+
+    if(!f)
+      continue;
+
+
+    /*
+     * Temporal stabilization.
+     * Instead of stacking complete flat
+     * frames on a fixed Z axis, each frame
+     * receives a small camera-motion offset.
+     */
+
+    const t =
+      frameIndex/
+      Math.max(
+        1,
+        limit-1
+      );
+
+    const cameraX =
+      (t-.5)*1.6;
+
+    const cameraZ =
+      Math.sin(
+        t*Math.PI
+      )*.7;
+
+
+    for(
+      let i=0;
+      i<f.positions.length;
+      i+=6
+    ){
+
+      if(
+        allPos.length/3 >= 150000
+      )
+        break;
+
+
+      const x=f.positions[i];
+      const y=f.positions[i+1];
+      const z=f.positions[i+2];
+
+
+      /*
+       * Keep stronger geometric points
+       * and reduce flat-image noise.
+       */
+
+      if(
+        Math.abs(z)<.025 &&
+        Math.random()<.45
+      )
+        continue;
+
+
+      allPos.push(
+
+        x+cameraX,
+
+        y,
+
+        z+cameraZ
+
+      );
+
+
+      allCol.push(
+
+        f.colors[i],
+        f.colors[i+1],
+        f.colors[i+2]
+
+      );
+
+    }
+
+
+    frameIndex++;
+
+
+    if(
+      frameIndex%5===0
+    ){
+
+      status(
+        "Building "+
+        Math.round(
+          frameIndex/limit*100
+        )+
+        "%"
+      );
+
+      await new Promise(
+        r=>setTimeout(r,0)
+      );
+
+    }
+
+  }
+
+
+  const geo =
+    new THREE.BufferGeometry();
+
+
+  geo.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      new Float32Array(allPos),
+      3
+    )
+  );
+
+
+  geo.setAttribute(
+    "color",
+    new THREE.BufferAttribute(
+      new Float32Array(allCol),
+      3
+    )
+  );
+
+
+  const mat =
+    new THREE.PointsMaterial({
+
+      size:.055,
+
+      vertexColors:true,
+
+      transparent:true,
+
+      opacity:.92,
+
+      depthWrite:false,
+
+      blending:
+        THREE.AdditiveBlending,
+
+      sizeAttenuation:true
+
+    });
+
+
+  worldPoints =
+    new THREE.Points(
+      geo,
+      mat
+    );
+
+
+  scene.add(
+    worldPoints
+  );
+
+
+  geo.computeBoundingSphere();
+
+
+  if(
+    geo.boundingSphere
+  ){
+
+    const r =
+      Math.max(
+        geo.boundingSphere.radius,
+        2
+      );
+
+    camera3D.position.set(
+      0,
+      1,
+      Math.max(
+        6,
+        r*2.5
+      )
+    );
+
+  }
+
+
+  status(
+    "Hologram ready · "+
+    Math.round(
+      allPos.length/3
+    ).toLocaleString()+
+    " points"
+  );
+
+}
+
+
+/* =========================================================
+   PLAYBACK
+========================================================= */
+
+function playRecording(){
+
+  const player =
+    $("playback");
+
+  if(!player.src){
+
+    status(
+      "No recording yet"
+    );
+
+    return;
+
+  }
+
+  player.classList.add(
+    "show"
+  );
+
+  player.play().catch(
+    ()=>{}
+  );
+
+}
+
+
+/* =========================================================
+   CONNECT
+========================================================= */
+
+function connect(){
+
+  if(
+    !peer
+  ){
+
+    createPeer(
+      true
+    );
+
+    return;
+
+  }
+
+
+  if(
+    peer.id
+  ){
+
+    showQR();
+
+  }
+
+}
+
+
+function createPeer(host){
+
+  peer =
+    new Peer();
+
+
+  peer.on(
+    "open",
+    id=>{
+
+      hostId=id;
+
+      if(host){
+
+        showQR();
+
+        status(
+          "Ready for phone / Quest"
+        );
+
+      }
+
+    }
+  );
+
+
+  peer.on(
+    "connection",
+    conn=>{
+
+      connection=conn;
+
+      updateDevices(
+        "phone"
+      );
+
+      setupConnection(
+        conn
+      );
+
+    }
+  );
+
+
+  peer.on(
+    "error",
+    error=>{
+
+      console.error(
+        error
+      );
+
+      status(
+        "Connection error"
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   QR
+========================================================= */
+
+function showQR(){
+
+  const url =
+    location.origin+
+    location.pathname+
+    "?join="+
+    encodeURIComponent(
+      peer.id
+    );
+
+
+  $("qr").src =
+    "https://api.qrserver.com/v1/create-qr-code/"+
+    "?size=600x600&data="+
+    encodeURIComponent(url);
+
+
+  $("pairCode").textContent =
+    peer.id
+      .slice(-6)
+      .toUpperCase();
+
+
+  $("connectModal")
+    .classList
+    .add("open");
+
+}
+
+
+function closeConnect(){
+
+  $("connectModal")
+    .classList
+    .remove("open");
+
+}
+
+
+function copyLink(){
+
+  const url =
+    location.origin+
+    location.pathname+
+    "?join="+
+    encodeURIComponent(
+      peer.id
+    );
+
+
+  navigator.clipboard
+    ?.writeText(url);
+
+  status(
+    "Pair link copied"
+  );
+
+}
+
+
+/* =========================================================
+   JOIN SESSION
+========================================================= */
+
+function joinSession(id){
+
+  isPhone =
+    /iPhone|iPad|Android/i
+      .test(
+        navigator.userAgent
+      );
+
+  isQuest =
+    /Quest|Oculus/i
+      .test(
+        navigator.userAgent
+      );
+
+
+  createPeer(
+    false
+  );
+
+
+  const wait =
+    setInterval(
+      ()=>{
+
+        if(
+          peer &&
+          peer.open
+        ){
+
+          clearInterval(
+            wait
+          );
+
+
+          connection =
+            peer.connect(
+              id,
+              {
+                reliable:true
+              }
+            );
+
+
+          setupConnection(
+            connection
+          );
+
+
+          if(isPhone){
+
+            openPhoneScanner();
+
+          }else if(isQuest){
+
+            status(
+              "Quest connected"
+            );
+
+          }
+
+        }
+
+      },
+      100
+    );
+
+}
+
+
+/* =========================================================
+   CONNECTION DATA
+========================================================= */
+
+let incomingVideo=[];
+let incomingMime="video/webm";
+
+function setupConnection(conn){
+
+  conn.on(
+    "open",
+    ()=>{
+
+      conn.send({
+        type:"hello",
+        device:
+          isQuest
+            ? "quest"
+            : isPhone
+              ? "phone"
+              : "desktop"
+      });
+
+      status(
+        "Device connected"
+      );
+
+    }
+  );
+
+
+  conn.on(
+    "data",
+    data=>{
+
+      if(!data)
+        return;
+
+
+      if(
+        data.type==="hello"
+      ){
+
+        updateDevices(
+          data.device
+        );
+
+        return;
+
+      }
+
+
+      if(
+        data.type==="spatial"
+      ){
+
+        receiveSpatial(
+          data
+        );
+
+        return;
+
+      }
+
+
+      if(
+        data.type==="videoStart"
+      ){
+
+        incomingVideo=[];
+
+        incomingMime =
+          data.mime ||
+          "video/webm";
+
+        return;
+
+      }
+
+
+      if(
+        data.type==="videoChunk"
+      ){
+
+        incomingVideo.push(
+          new Uint8Array(
+            data.data
+          )
+        );
+
+        return;
+
+      }
+
+
+      if(
+        data.type==="videoEnd"
+      ){
+
+        const blob =
+          new Blob(
+            incomingVideo,
+            {
+              type:incomingMime
+            }
+          );
+
+        const url =
+          URL.createObjectURL(
+            blob
+          );
+
+        $("playback").src=url;
+
+        $("playback").classList.add(
+          "show"
+        );
+
+        status(
+          "Phone recording received"
+        );
+
+      }
+
+    }
+  );
+
+
+  conn.on(
+    "close",
+    ()=>{
+
+      status(
+        "Device disconnected"
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   RECEIVE SPATIAL
+========================================================= */
+
+function receiveSpatial(data){
+
+  if(
+    !data.positions ||
+    !data.colors
+  )
+    return;
+
+
+  frames.push({
+
+    source:
+      data.source ||
+      "remote",
+
+    positions:
+      data.positions,
+
+    colors:
+      data.colors
+
+  });
+
+
+  if(
+    frames.length>180
+  )
+    frames.shift();
+
+
+  /*
+   * Show remote data immediately.
+   */
+
+  const p =
+    data.positions;
+
+  const c =
+    data.colors;
+
+  const count =
+    Math.min(
+      p.length/3,
+      MAX_POINTS
+    );
+
+
+  for(
+    let i=0;
+    i<count*3;
+    i++
+  ){
+
+    positions[i]=p[i];
+    colors[i]=c[i];
+
+  }
+
+
+  livePoints.geometry.setDrawRange(
+    0,
+    count
+  );
+
+  livePoints.geometry.attributes
+    .position.needsUpdate=true;
+
+  livePoints.geometry.attributes
+    .color.needsUpdate=true;
+
+
+  status(
+    "Spatial data synced"
+  );
+
+}
+
+
+/* =========================================================
+   DEVICE UI
+========================================================= */
+
+function updateDevices(device){
+
+  const bar =
+    $("devices");
+
+  if(
+    device==="phone"
+  ){
+
+    bar.textContent =
+      "Host ●  Phone ●  Quest ○";
+
+  }
+
+  if(
+    device==="quest"
+  ){
+
+    bar.textContent =
+      "Host ●  Phone ○  Quest ●";
+
+  }
+
+}
+
+
+/* =========================================================
+   PHONE SCANNER
+========================================================= */
+
+async function openPhoneScanner(){
+
+  $("phoneScreen")
+    .classList
+    .add("active");
+
+
+  $("phoneStatus").textContent =
+    "Starting rear camera…";
+
+
+  const ok =
+    await startCamera(
+      $("phoneVideo")
+    );
+
+
+  if(ok){
+
+    $("phoneStatus").textContent =
+      "Scanner ready · point phone at environment";
+
+    /*
+     * Automatically scan while
+     * the phone camera is active.
+     */
+
+    phoneScanLoop();
+
+  }
+
+}
+
+
+function phoneScanLoop(){
+
+  if(
+    !$("phoneScreen")
+      .classList
+      .contains("active")
+  )
+    return;
+
+
+  analyzeVideo(
+    $("phoneVideo"),
+    "iphone"
+  );
+
+
+  setTimeout(
+    phoneScanLoop,
+    120
+  );
+
+}
+
+
+/* =========================================================
+   PHONE RECORDING
+========================================================= */
+
+async function phoneRecord(){
+
+  if(recording){
+
+    stopRecording();
+
+    $("phoneRecord").textContent =
+      "● RECORD";
+
+    return;
+
+  }
+
+
+  if(!stream){
+
+    const ok =
+      await startCamera(
+        $("phoneVideo")
+      );
+
+    if(!ok)
+      return;
+
+  }
+
+
+  recordedChunks=[];
+
+
+  let mime="";
+
+
+  const formats=[
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm"
+  ];
+
+
+  for(
+    const f of formats
+  ){
+
+    if(
+      MediaRecorder.isTypeSupported(f)
+    ){
+
+      mime=f;
+      break;
+
+    }
+
+  }
+
+
+  try{
+
+    mediaRecorder =
+      new MediaRecorder(
+        stream,
+        mime
+          ? {mimeType:mime}
+          : undefined
+      );
+
+  }catch(e){
+
+    $("phoneStatus").textContent =
+      "Recording not supported";
+
+    return;
+
+  }
+
+
+  mediaRecorder.ondataavailable =
+    e=>{
+
+      if(
+        e.data &&
+        e.data.size
+      )
+        recordedChunks.push(
+          e.data
+        );
+
+    };
+
+
+  mediaRecorder.onstop =
+    ()=>{
+
+      recordingBlob =
+        new Blob(
+          recordedChunks,
+          {
+            type:
+              mime ||
+              "video/webm"
+          }
+        );
+
+
+      $("playback").src =
+        URL.createObjectURL(
+          recordingBlob
+        );
+
+
+      if(
+        connection &&
+        connection.open
+      ){
+
+        sendVideo(
+          recordingBlob
+        );
+
+      }
+
+
+      $("phoneStatus").textContent =
+        "Recording saved · spatial scan complete";
+
+    };
+
+
+  mediaRecorder.start(
+    500
+  );
+
+
+  recording=true;
+
+
+  $("phoneRecord").textContent =
+    "■ STOP";
+
+
+  $("phoneStatus").textContent =
+    "Recording + 3D scanning";
+
+}
+
+
+/* =========================================================
+   MANUAL SPATIAL FRAME
+========================================================= */
+
+function sendSpatialFrame(){
+
+  if(
+    !$("phoneVideo").videoWidth
+  )
+    return;
+
+
+  analyzeVideo(
+    $("phoneVideo"),
+    "iphone"
+  );
+
+
+  if(
+    connection &&
+    connection.open
+  ){
+
+    connection.send({
+
+      type:"scanPing",
+
+      time:Date.now()
+
+    });
+
+  }
+
+
+  $("phoneStatus").textContent =
+    "Spatial frame captured";
+
+}
+
+
+/* =========================================================
+   CLOSE PHONE
+========================================================= */
+
+function closePhone(){
+
+  $("phoneScreen")
+    .classList
+    .remove("active");
+
+
+  if(
+    stream
+  ){
+
+    stream
+      .getTracks()
+      .forEach(
+        t=>t.stop()
+      );
+
+    stream=null;
+
+  }
+
+
+  if(
+    recording
+  ){
+
+    stopRecording();
+
+  }
+
+}
+
+
+/* =========================================================
+   URL BOOT
+========================================================= */
+
+function boot(){
+
+  init3D();
+
+
+  const params =
+    new URLSearchParams(
+      location.search
+    );
+
+
+  const join =
+    params.get("join");
+
+
+  if(join){
+
+    joinSession(
+      join
+    );
+
+  }else{
+
+    createPeer(
+      true
+    );
+
+  }
+
+}
+
+
+boot();
+
+</script>
+
+</body>
+</html>
