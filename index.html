@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HyperStream XD • Engine v5.0 — Holographic Recorder</title>
+<title>HyperStream XD • Engine v5.1 — Holographic Recorder + Room Constructor</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#020617;color:#f8fafc;font-family:system-ui,sans-serif;height:100vh;display:flex;overflow:hidden}
@@ -34,8 +34,8 @@ video{display:none}
 </head>
 <body>
 <div id="sidebar">
-  <div style="font-size:13px;font-weight:900;color:#38bdf8;margin-bottom:4px">HYPERSTREAM XD • v5.0</div>
-  <div style="font-size:10px;color:#64748b;margin-bottom:6px">Holographic Video + 3D Sequence Recorder</div>
+  <div style="font-size:13px;font-weight:900;color:#38bdf8;margin-bottom:4px">HYPERSTREAM XD • v5.1</div>
+  <div style="font-size:10px;color:#64748b;margin-bottom:6px">Holographic Video + 3D Sequence + Room Constructor</div>
 
   <div class="card">
     <div class="title">Live Matrix Control</div>
@@ -65,6 +65,15 @@ video{display:none}
     <button class="btn-p" onclick="exportSequence()" id="dlSeqBtn" disabled>Export 3D Sequence (JSON)</button>
     <div class="small">Records both the visual hologram video and the underlying 3D point-cloud sequence.</div>
   </div>
+
+  <!-- NEW SECTION — only addition -->
+  <div class="card">
+    <div class="title">Construct Room</div>
+    <div class="row"><span>Environment Points</span><b id="envPoints" style="color:#34d399">0</b></div>
+    <button class="btn-p" id="buildEnvBtn" onclick="buildEnvironment()" disabled>Build 3D Environment from Sequence</button>
+    <button class="btn-d" id="clearEnvBtn" onclick="clearEnvironment()" disabled>Clear Environment</button>
+    <div class="small">Takes the recorded 3D sequence and merges it into a persistent holographic room/environment you can freely explore.</div>
+  </div>
 </div>
 
 <div id="viewer">
@@ -90,21 +99,24 @@ let fc = 0, ft = 0;
 let recording = false;
 let mediaRecorder = null;
 let recordedChunks = [];
-let sequenceFrames = [];          // 3D point-cloud sequence
+let sequenceFrames = [];
 let recStartTime = 0;
 let recTimerInterval = null;
 let lastCaptureTime = 0;
-const CAPTURE_INTERVAL = 80;      // ~12.5 fps for 3D sequence (balance quality/memory)
+const CAPTURE_INTERVAL = 80;
 let playingBack = false;
 let playbackIndex = 0;
 let playbackLastTime = 0;
 const PLAYBACK_FPS = 12;
 
-// Reusable geometry for performance
+// Reusable geometry for live / playback
 let pointsMesh = null;
 let posAttr = null;
 let colAttr = null;
 const MAX_POINTS = 80000;
+
+// Environment (Construct Room)
+let envMesh = null;
 
 window.addEventListener('DOMContentLoaded', () => {
   init3();
@@ -123,7 +135,7 @@ function init3() {
     canvas: $('c3'),
     antialias: true,
     powerPreference: 'high-performance',
-    preserveDrawingBuffer: true          // needed for clean MediaRecorder frames
+    preserveDrawingBuffer: true
   });
   ren.setSize(box.clientWidth, box.clientHeight);
   ren.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -136,7 +148,7 @@ function init3() {
 
   scene.add(new THREE.AmbientLight(0xffffff, 1.15));
 
-  // Pre-create points mesh for reuse
+  // Live / playback points mesh
   const geo = new THREE.BufferGeometry();
   const positions = new Float32Array(MAX_POINTS * 3);
   const colors = new Float32Array(MAX_POINTS * 3);
@@ -192,7 +204,6 @@ function initCam() {
 function loop(now) {
   ctrl.update();
 
-  // FPS counter
   fc++;
   if (now - ft > 1000) {
     $('fpsD').textContent = Math.round(fc * 1000 / (now - ft));
@@ -255,7 +266,6 @@ function sample(now) {
   pointsMesh.geometry.setDrawRange(0, count);
   $('nLive').textContent = count.toLocaleString();
 
-  // Capture 3D frame while recording (throttled)
   if (recording && (now - lastCaptureTime >= CAPTURE_INTERVAL)) {
     lastCaptureTime = now;
     const posCopy = new Float32Array(posAttr.array.buffer.slice(0, count * 3 * 4));
@@ -301,8 +311,7 @@ function startRecording() {
   lastCaptureTime = 0;
   recStartTime = performance.now();
 
-  // Video stream from the Three.js canvas
-  const canvasStream = $('c3').captureStream(30); // 30 fps target
+  const canvasStream = $('c3').captureStream(30);
   mediaRecorder = new MediaRecorder(canvasStream, {
     mimeType: 'video/webm;codecs=vp9',
     videoBitsPerSecond: 6_000_000
@@ -316,9 +325,10 @@ function startRecording() {
     $('dlVideoBtn').disabled = recordedChunks.length === 0;
     $('dlSeqBtn').disabled = sequenceFrames.length === 0;
     $('playBtn').disabled = sequenceFrames.length === 0;
+    $('buildEnvBtn').disabled = sequenceFrames.length === 0;
   };
 
-  mediaRecorder.start(100); // collect data every 100ms
+  mediaRecorder.start(100);
   recording = true;
 
   $('recBtn').textContent = '■ STOP RECORDING';
@@ -329,7 +339,6 @@ function startRecording() {
   $('recInd').classList.add('on');
   $('frameCount').textContent = '0';
 
-  // Timer
   recTimerInterval = setInterval(updateRecTimer, 200);
 }
 
@@ -372,9 +381,8 @@ function downloadVideo() {
 function exportSequence() {
   if (sequenceFrames.length === 0) return;
 
-  // Compact export (typed arrays → regular arrays for JSON)
   const payload = {
-    version: 'HyperStreamXD-5.0',
+    version: 'HyperStreamXD-5.1',
     frameCount: sequenceFrames.length,
     captureIntervalMs: CAPTURE_INTERVAL,
     frames: sequenceFrames.map(f => ({
@@ -405,7 +413,6 @@ function togglePlayback() {
 function startPlayback() {
   if (sequenceFrames.length === 0) return;
 
-  // Pause live scan during playback
   if (scanning) toggleScan();
 
   playingBack = true;
@@ -435,7 +442,6 @@ function playbackStep(now) {
   playbackLastTime = now;
   const frame = sequenceFrames[playbackIndex];
 
-  // Load frame into the shared buffers
   posAttr.array.set(frame.pos);
   colAttr.array.set(frame.col);
   posAttr.needsUpdate = true;
@@ -445,8 +451,83 @@ function playbackStep(now) {
 
   playbackIndex++;
   if (playbackIndex >= sequenceFrames.length) {
-    playbackIndex = 0; // loop
+    playbackIndex = 0;
   }
+}
+
+/* ============================================================
+   NEW: Construct Room — builds a persistent 3D environment
+   from the recorded sequence. Everything above stays unchanged.
+   ============================================================ */
+function buildEnvironment() {
+  if (sequenceFrames.length === 0) return;
+
+  // Stop playback if running so we don't fight over the live mesh
+  if (playingBack) stopPlayback();
+
+  // Clear previous environment if any
+  clearEnvironment();
+
+  // Simple merge: take every 3rd frame and accumulate points
+  // (keeps memory and performance reasonable)
+  const mergedPos = [];
+  const mergedCol = [];
+  const stride = Math.max(1, Math.floor(sequenceFrames.length / 40)); // aim for ~40 frames max
+
+  for (let i = 0; i < sequenceFrames.length; i += stride) {
+    const f = sequenceFrames[i];
+    for (let p = 0; p < f.n; p++) {
+      const idx = p * 3;
+      // tiny random offset so overlapping frames create volume
+      const jitter = 0.008;
+      mergedPos.push(
+        f.pos[idx]     + (Math.random() - 0.5) * jitter,
+        f.pos[idx + 1] + (Math.random() - 0.5) * jitter,
+        f.pos[idx + 2] + (Math.random() - 0.5) * jitter
+      );
+      mergedCol.push(f.col[idx], f.col[idx + 1], f.col[idx + 2]);
+    }
+  }
+
+  if (mergedPos.length === 0) return;
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(mergedPos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(mergedCol, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.016,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.88,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  envMesh = new THREE.Points(geo, mat);
+  scene.add(envMesh);
+
+  $('envPoints').textContent = (mergedPos.length / 3).toLocaleString();
+  $('clearEnvBtn').disabled = false;
+  $('buildEnvBtn').disabled = true; // prevent accidental double-build
+
+  // Nice camera framing
+  ctrl.autoRotate = true;
+  cam.position.set(0, 0.6, 4.2);
+  ctrl.target.set(0, 0, 0);
+  ctrl.update();
+}
+
+function clearEnvironment() {
+  if (envMesh) {
+    scene.remove(envMesh);
+    envMesh.geometry.dispose();
+    envMesh.material.dispose();
+    envMesh = null;
+  }
+  $('envPoints').textContent = '0';
+  $('clearEnvBtn').disabled = true;
+  $('buildEnvBtn').disabled = sequenceFrames.length === 0;
 }
 </script>
 </body>
