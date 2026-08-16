@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HyperStream XD • Engine v5.1 — Holographic Recorder + Room Constructor</title>
+<title>HyperStream XD • Engine v5.2 — Holographic Recorder + Room Constructor</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#020617;color:#f8fafc;font-family:system-ui,sans-serif;height:100vh;display:flex;overflow:hidden}
@@ -34,7 +34,7 @@ video{display:none}
 </head>
 <body>
 <div id="sidebar">
-  <div style="font-size:13px;font-weight:900;color:#38bdf8;margin-bottom:4px">HYPERSTREAM XD • v5.1</div>
+  <div style="font-size:13px;font-weight:900;color:#38bdf8;margin-bottom:4px">HYPERSTREAM XD • v5.2</div>
   <div style="font-size:10px;color:#64748b;margin-bottom:6px">Holographic Video + 3D Sequence + Room Constructor</div>
 
   <div class="card">
@@ -66,13 +66,13 @@ video{display:none}
     <div class="small">Records both the visual hologram video and the underlying 3D point-cloud sequence.</div>
   </div>
 
-  <!-- NEW SECTION — only addition -->
   <div class="card">
     <div class="title">Construct Room</div>
     <div class="row"><span>Environment Points</span><b id="envPoints" style="color:#34d399">0</b></div>
     <button class="btn-p" id="buildEnvBtn" onclick="buildEnvironment()" disabled>Build 3D Environment from Sequence</button>
+    <button class="btn-g" id="saveEnvBtn" onclick="saveEnvironment()" disabled>Save Environment (JSON)</button>
     <button class="btn-d" id="clearEnvBtn" onclick="clearEnvironment()" disabled>Clear Environment</button>
-    <div class="small">Takes the recorded 3D sequence and merges it into a persistent holographic room/environment you can freely explore.</div>
+    <div class="small">Merges the sequence into a clean holographic spatial map (progressive depth). You can save the result.</div>
   </div>
 </div>
 
@@ -117,6 +117,8 @@ const MAX_POINTS = 80000;
 
 // Environment (Construct Room)
 let envMesh = null;
+let envPos = null;   // kept so we can save it
+let envCol = null;
 
 window.addEventListener('DOMContentLoaded', () => {
   init3();
@@ -382,7 +384,7 @@ function exportSequence() {
   if (sequenceFrames.length === 0) return;
 
   const payload = {
-    version: 'HyperStreamXD-5.1',
+    version: 'HyperStreamXD-5.2',
     frameCount: sequenceFrames.length,
     captureIntervalMs: CAPTURE_INTERVAL,
     frames: sequenceFrames.map(f => ({
@@ -456,50 +458,72 @@ function playbackStep(now) {
 }
 
 /* ============================================================
-   NEW: Construct Room — builds a persistent 3D environment
-   from the recorded sequence. Everything above stays unchanged.
+   CONSTRUCT ROOM — improved spatial mapping + save
    ============================================================ */
 function buildEnvironment() {
   if (sequenceFrames.length === 0) return;
 
-  // Stop playback if running so we don't fight over the live mesh
   if (playingBack) stopPlayback();
-
-  // Clear previous environment if any
   clearEnvironment();
 
-  // Simple merge: take every 3rd frame and accumulate points
-  // (keeps memory and performance reasonable)
+  const TARGET_POINTS = 100000;          // hard cap for clean look + performance
+  const maxFramesToUse = Math.min(sequenceFrames.length, 48);
+  const frameStep = Math.max(1, Math.floor(sequenceFrames.length / maxFramesToUse));
+
   const mergedPos = [];
   const mergedCol = [];
-  const stride = Math.max(1, Math.floor(sequenceFrames.length / 40)); // aim for ~40 frames max
 
-  for (let i = 0; i < sequenceFrames.length; i += stride) {
-    const f = sequenceFrames[i];
+  // Progressive depth: later frames are pushed further back
+  // so the sequence becomes a spatial volume instead of a flat blob
+  const depthSpread = 2.8;
+
+  for (let fi = 0; fi < sequenceFrames.length; fi += frameStep) {
+    const f = sequenceFrames[fi];
+    const progress = fi / Math.max(1, sequenceFrames.length - 1); // 0 → 1
+    const zOffset = (progress - 0.5) * depthSpread;
+
+    // Randomly keep only a fraction of points from this frame
+    const keepChance = Math.min(1, (TARGET_POINTS / sequenceFrames.length) / Math.max(1, f.n));
+
     for (let p = 0; p < f.n; p++) {
+      if (Math.random() > keepChance) continue;
+
       const idx = p * 3;
-      // tiny random offset so overlapping frames create volume
-      const jitter = 0.008;
+      const jitter = 0.012;
+
       mergedPos.push(
         f.pos[idx]     + (Math.random() - 0.5) * jitter,
         f.pos[idx + 1] + (Math.random() - 0.5) * jitter,
-        f.pos[idx + 2] + (Math.random() - 0.5) * jitter
+        f.pos[idx + 2] + zOffset + (Math.random() - 0.5) * jitter
       );
-      mergedCol.push(f.col[idx], f.col[idx + 1], f.col[idx + 2]);
+      mergedCol.push(
+        f.col[idx],
+        f.col[idx + 1],
+        f.col[idx + 2]
+      );
+
+      if (mergedPos.length / 3 >= TARGET_POINTS) break;
     }
+    if (mergedPos.length / 3 >= TARGET_POINTS) break;
   }
 
-  if (mergedPos.length === 0) return;
+  if (mergedPos.length < 100) {
+    alert('Not enough points to build a useful environment. Record a longer or denser sequence.');
+    return;
+  }
+
+  envPos = new Float32Array(mergedPos);
+  envCol = new Float32Array(mergedCol);
 
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(mergedPos, 3));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(mergedCol, 3));
+  geo.setAttribute('position', new THREE.BufferAttribute(envPos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(envCol, 3));
 
   const mat = new THREE.PointsMaterial({
-    size: 0.016,
+    size: 0.022,
     vertexColors: true,
     transparent: true,
-    opacity: 0.88,
+    opacity: 0.85,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   });
@@ -507,15 +531,36 @@ function buildEnvironment() {
   envMesh = new THREE.Points(geo, mat);
   scene.add(envMesh);
 
-  $('envPoints').textContent = (mergedPos.length / 3).toLocaleString();
+  const count = envPos.length / 3;
+  $('envPoints').textContent = count.toLocaleString();
   $('clearEnvBtn').disabled = false;
-  $('buildEnvBtn').disabled = true; // prevent accidental double-build
+  $('saveEnvBtn').disabled = false;
+  $('buildEnvBtn').disabled = true;
 
-  // Nice camera framing
+  // Frame the volume nicely
   ctrl.autoRotate = true;
-  cam.position.set(0, 0.6, 4.2);
+  cam.position.set(0, 0.7, 5.0);
   ctrl.target.set(0, 0, 0);
   ctrl.update();
+}
+
+function saveEnvironment() {
+  if (!envPos || !envCol) return;
+
+  const payload = {
+    version: 'HyperStreamXD-Environment-5.2',
+    pointCount: envPos.length / 3,
+    positions: Array.from(envPos),
+    colors: Array.from(envCol)
+  };
+
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hyperstream_environment_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function clearEnvironment() {
@@ -525,8 +570,11 @@ function clearEnvironment() {
     envMesh.material.dispose();
     envMesh = null;
   }
+  envPos = null;
+  envCol = null;
   $('envPoints').textContent = '0';
   $('clearEnvBtn').disabled = true;
+  $('saveEnvBtn').disabled = true;
   $('buildEnvBtn').disabled = sequenceFrames.length === 0;
 }
 </script>
