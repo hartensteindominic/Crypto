@@ -10,19 +10,42 @@ public static class HyperStreamQuestSetup
     [MenuItem("HyperStream/Create Quest World Scene")]
     public static void CreateScene()
     {
-        var scene=EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
-        var session=new GameObject("AR Session"); session.AddComponent<ARSession>();
-        var origin=GameObject.Find("XR Origin")??new GameObject("XR Origin");
-        var xr=origin.GetComponent<XROrigin>()??origin.AddComponent<XROrigin>();
-        var cameraGo=new GameObject("Main Camera"); cameraGo.tag="MainCamera"; cameraGo.transform.SetParent(origin.transform,false); cameraGo.AddComponent<Camera>();
-        xr.Camera=cameraGo.GetComponent<Camera>();
+        var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+        var session = new GameObject("AR Session");
+        session.AddComponent<ARSession>();
+
+        var origin = new GameObject("XR Origin");
+        var xr = origin.AddComponent<XROrigin>();
+        var offset = new GameObject("Camera Offset");
+        offset.transform.SetParent(origin.transform, false);
+
+        var cameraGo = new GameObject("Main Camera");
+        cameraGo.tag = "MainCamera";
+        cameraGo.transform.SetParent(offset.transform, false);
+        var camera = cameraGo.AddComponent<Camera>();
+        camera.nearClipPlane = .05f;
+        camera.farClipPlane = 50f;
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = new Color(0, 0, 0, 0);
+        cameraGo.AddComponent<ARCameraManager>();
+        cameraGo.AddComponent<ARCameraBackground>();
+        xr.Camera = camera;
+        xr.CameraFloorOffsetObject = offset;
+
         origin.AddComponent<ARPlaneManager>();
         origin.AddComponent<ARMeshManager>();
-        origin.AddComponent<ARCameraManager>();
-        var hs=new GameObject("HyperStream"); hs.AddComponent<HyperStreamBootstrap>();
-        Selection.activeGameObject=hs;
-        EditorSceneManager.SaveScene(scene,"Assets/Scenes/HyperStreamQuest.unity");
-        EditorUtility.DisplayDialog("HyperStream","Scene created. Enable OpenXR + Meta Quest features, complete Space Setup on the headset, then build Android.","OK");
+
+        var hs = new GameObject("HyperStream");
+        hs.AddComponent<HyperStreamBootstrap>();
+        Selection.activeGameObject = hs;
+
+        System.IO.Directory.CreateDirectory("Assets/Scenes");
+        EditorSceneManager.SaveScene(scene, "Assets/Scenes/HyperStreamQuest.unity");
+        EditorUtility.DisplayDialog(
+            "HyperStream Quest",
+            "Scene created.\n\nBefore building: Android → XR Plug-in Management → OpenXR → enable the Meta Quest features for Scene/Meshing/Camera. Complete Quest Space Setup.\n\nThen build the Android APK and install it on Quest.",
+            "OK");
     }
 }
 #endif
