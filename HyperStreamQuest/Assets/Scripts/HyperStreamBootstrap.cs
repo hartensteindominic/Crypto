@@ -12,6 +12,15 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
     public ARPlaneManager planeManager;
     public ARMeshManager meshManager;
 
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void AutoCreate()
+    {
+        if (FindFirstObjectByType<HyperStreamBootstrap>() != null) return;
+        var go = new GameObject("HyperStream Runtime");
+        DontDestroyOnLoad(go);
+        go.AddComponent<HyperStreamBootstrap>();
+    }
+
     void Awake()
     {
         Application.targetFrameRate = 72;
@@ -20,7 +29,7 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
         if (mapper == null) mapper = gameObject.AddComponent<HyperStreamQuestWorldMapper>();
         mapper.planeManager = planeManager;
         mapper.meshManager = meshManager;
-        mapper.xrCamera = Camera.main;
+        mapper.xrCamera = xrOrigin != null ? xrOrigin.Camera : Camera.main;
         if (spatialRenderer == null) spatialRenderer = gameObject.AddComponent<HyperStreamSpatialRenderer>();
         spatialRenderer.planeManager = planeManager;
         spatialRenderer.meshManager = meshManager;
