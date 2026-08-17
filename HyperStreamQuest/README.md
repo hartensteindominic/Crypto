@@ -1,53 +1,63 @@
-# HyperStream native Quest world engine
+# HyperStream Quest
 
-This is the native Quest/OpenXR side of HyperStream. It is intentionally separate from the HTML dashboard so the headset can use real XR tracking and the Meta Scene/AR Foundation provider instead of trying to infer a room from browser pixels.
+Native Quest/OpenXR side of HyperStream. The Quest is the source of spatial truth; the iPhone enriches that world with visual detail.
 
-## What it does
+## Runtime flow
 
-- Quest-first spatial mapping through Unity OpenXR + Meta OpenXR.
-- AR Foundation plane and mesh managers.
-- Samples actual mesh vertices and sends them as XYZ world coordinates.
-- Uses the Quest headset camera pose as a world reference.
-- Sends live spatial packets to the HyperStream relay over WebSocket.
-- The phone dashboard can send JPEG camera frames back through the same relay as enrichment data.
-- The HTML dashboard can save/load the received world and replay its spatial records.
-- World state is represented as `X Y Z T S`: position, time/history, and spatial confidence/state.
+`Quest passthrough → Space Setup/Scene Model → real planes + room mesh → visible 3D reconstruction → Record → iPhone Enrich → Save World → Enter World`
 
-## Current package baseline
+## Native Quest changes
 
-The project targets Unity 6 and uses released Unity OpenXR/Meta OpenXR packages. Unity's current Meta OpenXR package provides the AR Foundation provider for Quest planes, meshes, bounding boxes, anchors and passthrough. Meta Scene data requires the headset's Space Setup/Room Setup to be completed first. citeturn0search1turn0search4turn2search5
+- Unity 6 project with AR Foundation + Meta OpenXR.
+- Runtime XR loader initialization happens before mapping starts.
+- Quest camera uses `ARCameraBackground` for passthrough instead of leaving a transparent camera over a black render target.
+- Plane and mesh managers are enabled only after XR/session startup.
+- Scene permission is requested on Android.
+- Room mesh rendering uses the actual AR mesh trackable IDs and geometry.
+- Mapping starts automatically after session startup.
+- Spatial packets contain headset pose, plane locations, and sampled real mesh vertices.
+- Mesh history is bounded; the mapper does not intentionally accumulate an infinite cloud.
+- Android manifest includes `USE_SCENE` and network permission.
 
-## Setup
+## Build
 
-1. Install Unity 6.
-2. Open `HyperStreamQuest/` as a Unity project.
-3. Let Package Manager resolve `Packages/manifest.json`.
-4. In Project Settings > XR Plug-in Management > Android, enable OpenXR.
-5. In OpenXR feature groups, enable the Meta Quest feature group and the Meta Quest Scene/Meshing/Plane features. The Meta OpenXR documentation requires `USE_SCENE` permission for planes, bounding boxes and meshes. citeturn0search1
-6. In the headset, complete **Space Setup** before testing. Quest plane/scene data comes from the stored Scene Model. citeturn0search0turn0search4
-7. In Unity use **HyperStream > Create Quest World Scene**.
-8. Set the relay address in `HyperStreamQuestWorldMapper` / `HyperStreamRelayClient` to the computer running the relay, for example `ws://192.168.1.100:8787`.
-9. Build the Android APK and install it on the Quest.
+1. Open `HyperStreamQuest/` in Unity 6.
+2. Let Package Manager resolve the existing AR Foundation, OpenXR, and Meta OpenXR dependencies.
+3. Use **HyperStream → Create Quest World Scene**.
+4. In **Project Settings → XR Plug-in Management → Android**, enable OpenXR.
+5. Enable the Meta Quest features for Scene/meshing/camera available in the installed Meta OpenXR package.
+6. Complete Quest **Space Setup** on the headset.
+7. Build an Android APK and install it on Quest.
 
-## Start the phone bridge
+The project is deliberately not pretending that a browser can access private Quest scene data. The native application is the spatial mapper.
 
-From `hyperstream-relay/`:
+## Phone + relay
+
+Run:
 
 ```bash
+cd hyperstream-relay
 npm install
 node server.js
 ```
 
-The relay listens on TCP port `8787` and broadcasts Quest spatial packets and phone-enrichment packets to connected clients.
+Then open `HyperStream_Advanced.html` on the phone and set the relay address to the computer's LAN address, for example `ws://192.168.1.100:8787`.
 
-Then open `HyperStream_Advanced.html` on the phone and enter the relay address. Press **Connect**.
+The phone camera is an enrichment source. Quest establishes the spatial coordinate system first, and phone images are associated with the current world location rather than being treated as the room's primary depth source.
 
-## Mapping flow
+## Saved world
 
-`Quest Space Setup → native Quest mapper → real planes/mesh vertices → WebSocket relay → HyperStream HTML → phone image enrichment → Save World → Enter World`
+The HyperStream world format keeps:
 
-The native app does not fabricate room geometry when Quest scene data is unavailable. If Space Setup or the required Scene/Meshing features are unavailable, the mapper reports that state instead of creating fake geometry.
+- X/Y/Z spatial coordinates
+- T temporal history
+- S spatial confidence/state
+- planes
+- meshes/vertices
+- phone enrichment references
 
-## Important limitation
+The renderer should show actual received geometry. It does not fabricate a room when Quest Scene/Meshing data is unavailable.
 
-This is a real native mapping foundation, but it is not yet a photorealistic scanned-room renderer. The Quest provider supplies scene/mesh information and the current bridge transfers sampled geometry. The next renderer upgrade can consume the full mesh topology/material data and attach phone imagery to spatial anchors.
+## Honest status
+
+The repository now contains the native Quest source and project structure, but an Android APK still has to be produced by Unity and installed on the headset. A GitHub source commit alone cannot be truthfully described as a tested APK.
