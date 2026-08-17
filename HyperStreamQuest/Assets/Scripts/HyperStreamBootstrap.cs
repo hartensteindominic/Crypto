@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.Management;
+using UnityEngine.XR.ARSubsystems;
 using Unity.XR.CoreUtils;
 
 public sealed class HyperStreamBootstrap : MonoBehaviour
@@ -27,8 +28,8 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
     IEnumerator Start()
     {
         Application.targetFrameRate = 72;
-        yield return StartCoroutine(InitializeXR());
         EnsureXRScene();
+        yield return InitializeXR();
         if (relay == null) relay = gameObject.AddComponent<HyperStreamRelayClient>();
         if (mapper == null) mapper = gameObject.AddComponent<HyperStreamQuestWorldMapper>();
         mapper.planeManager = planeManager;
@@ -37,7 +38,18 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
         if (spatialRenderer == null) spatialRenderer = gameObject.AddComponent<HyperStreamSpatialRenderer>();
         spatialRenderer.planeManager = planeManager;
         spatialRenderer.meshManager = meshManager;
-        if (!xrReady) Debug.LogError("HyperStream: XR loader did not start. Enable OpenXR + Meta Quest feature group for Android, then rebuild.");
+
+        if (!xrReady)
+        {
+            Debug.LogError("HyperStream: XR loader did not start. Configure Android OpenXR + Meta Quest features and rebuild.");
+            return;
+        }
+
+        yield return WaitForSessionTracking();
+        planeManager.enabled = true;
+        meshManager.enabled = true;
+        mapper.StartMapping();
+        Debug.Log("HyperStream: Quest mapping started. Walk around the room.");
     }
 
     IEnumerator InitializeXR()
@@ -48,17 +60,26 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
             Debug.LogError("HyperStream: XRGeneralSettings/Manager missing.");
             yield break;
         }
+
         var manager = settings.Manager;
         if (manager.activeLoader == null)
-        {
             yield return manager.InitializeLoader();
-        }
+
         if (manager.activeLoader != null)
         {
             manager.StartSubsystems();
             xrReady = true;
             Debug.Log("HyperStream: OpenXR loader started.");
         }
+    }
+
+    IEnumerator WaitForSessionTracking()
+    {
+        if (arSession == null) yield break;
+        arSession.enabled = true;
+        float deadline = Time.realtimeSinceStartup + 12f;
+        while (Time.realtimeSinceStartup < deadline && ARSession.state != ARSessionState.SessionTracking)
+            yield return null;
     }
 
     void EnsureXRScene()
@@ -77,11 +98,12 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
             cameraGO.tag = "MainCamera";
             cameraGO.transform.SetParent(offset.transform, false);
             var camera = cameraGO.AddComponent<Camera>();
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
             camera.nearClipPlane = .05f;
             camera.farClipPlane = 50f;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0f, 0f, 0f, 0f);
             cameraGO.AddComponent<ARCameraManager>();
+            cameraGO.AddComponent<ARCameraBackground>();
             cameraGO.AddComponent<HyperStreamQuestHeadPose>();
             xrOrigin.Camera = camera;
             xrOrigin.CameraFloorOffsetObject = offset;
@@ -93,27 +115,32 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
             mainCamera.clearFlags = CameraClearFlags.SolidColor;
             mainCamera.backgroundColor = new Color(0f, 0f, 0f, 0f);
             if (mainCamera.GetComponent<ARCameraManager>() == null) mainCamera.gameObject.AddComponent<ARCameraManager>();
+            if (mainCamera.GetComponent<ARCameraBackground>() == null) mainCamera.gameObject.AddComponent<ARCameraBackground>();
             if (mainCamera.GetComponent<HyperStreamQuestHeadPose>() == null) mainCamera.gameObject.AddComponent<HyperStreamQuestHeadPose>();
         }
 
         planeManager = xrOrigin.GetComponent<ARPlaneManager>();
         if (planeManager == null) planeManager = xrOrigin.gameObject.AddComponent<ARPlaneManager>();
-        planeManager.requestedDetectionMode = UnityEngine.XR.ARSubsystems.PlaneDetectionMode.Horizontal | UnityEngine.XR.ARSubsystems.PlaneDetectionMode.Vertical;
-        planeManager.enabled = xrReady;
+        planeManager.requestedDetectionMode = PlaneDetectionMode.Horizontal | PlaneDetectionMode.Vertical;
+        planeManager.enabled = false;
 
         meshManager = xrOrigin.GetComponent<ARMeshManager>();
         if (meshManager == null) meshManager = xrOrigin.gameObject.AddComponent<ARMeshManager>();
-        meshManager.enabled = xrReady;
+        meshManager.enabled = false;
     }
 
     public void StartMapping()
     {
-        if (!xrReady) { Debug.LogError("HyperStream: XR is not ready. Check the Android OpenXR/Meta Quest feature group."); return; }
-        if (arSession != null) arSession.enabled = true;
-        if (planeManager != null) planeManager.enabled = true;
-        if (meshManager != null) meshManager.enabled = true;
+        if (!xrReady) return;
+        planeManager.enabled = true;
+        meshManager.enabled = true;
         mapper?.StartMapping();
     }
 
-    public void StopMapping() => mapper?.StopMapping();
+    public void StopMapping()
+    {
+        planeManager.enabled = false;
+        meshManager.enabled = false;
+        mapper?.StopMapping();
+    }
 }
