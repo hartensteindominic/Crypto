@@ -1,1 +1,221 @@
-<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>HyperStream Spatial Hologram</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#010308;color:#eaf6ff;font:14px system-ui}#v{position:fixed;inset:0;width:100%;height:100%}.ui{position:fixed;left:10px;right:10px;bottom:10px;padding:10px;border:1px solid #ffffff18;border-radius:18px;background:#070b12ed;backdrop-filter:blur(14px);z-index:4}.row{display:flex;flex-wrap:wrap;gap:3px}button{border:0;border-radius:10px;padding:9px 11px;background:#176fc1;color:#fff;font-weight:700}button:disabled{opacity:.3}.st{color:#b9e8ff}.sm{color:#899aaa;font-size:12px}.modal{display:none;position:fixed;inset:0;z-index:10;background:#000d;align-items:center;justify-content:center;padding:15px}.on{display:flex}.card{background:#151a22;border-radius:18px;padding:16px;width:min(420px,100%);text-align:center}.qr{width:250px;height:250px;background:#fff;margin:10px auto;padding:7px}.qr canvas{width:100%;height:100%}video{width:100%;border-radius:13px;max-height:55vh}</style><canvas id=v></canvas><div class=ui><div class=st id=s>Spatial Hologram ready</div><div class=row><button id=start>Start Scan</button><button id=show>Connect Quest</button><button id=scan>Scan QR</button><button id=flip>Flip Camera</button><button id=mode>Hologram</button><button id=build disabled>Lock Space</button><button id=clear>Clear</button></div><div class=sm id=stats>XYZ 0 · Depth 0% · Surface 0% · Coverage 0%</div></div><div class=modal id=qrm><div class=card><b>Quest connection</b><div class=qr><canvas id=qr></canvas></div><div id=pair>Preparing…</div><button id=qx>Close</button></div></div><div class=modal id=scm><div class=card><b>Scan Quest QR</b><video id=sv autoplay playsinline muted></video><p id=sm class=sm>Point at the QR code.</p><button id=sx>Cancel</button></div></div><script>const $=x=>document.getElementById(x),say=x=>$('s').textContent=x;let peer,conn,scene,cam,ren,ctl,stream,vid,front=false,running=false,locked=false,remote=[],map=new Map(),lastImg=null,pose={x:0,y:0,z:0,yaw:0,pitch:0,roll:0},lastT=0,mode=0;const CELL=.065,MAX=14000;const load=u=>new Promise((ok,no)=>{if(document.querySelector('script[src="'+u+'"]'))return ok();let e=document.createElement('script');e.src=u;e.onload=ok;e.onerror=no;document.head.appendChild(e)});async function init(){if(ren)return;await load('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');await load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js');scene=new THREE.Scene();cam=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.02,100);cam.position.set(0,1,4.5);ren=new THREE.WebGLRenderer({canvas:$('v'),antialias:true,preserveDrawingBuffer:true});ren.setPixelRatio(Math.min(devicePixelRatio,1.5));ren.setSize(innerWidth,innerHeight);ctl=new THREE.OrbitControls(cam,ren.domElement);ctl.enableDamping=true;ctl.autoRotate=true;ctl.autoRotateSpeed=.018;scene.add(new THREE.GridHelper(14,28,0x10243a,0x050a12));addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});ren.setAnimationLoop(()=>{ctl.update();ren.render(scene,cam)})}async function net(){if(peer)return;try{await load('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js');peer=new Peer();peer.on('connection',bind);peer.on('open',()=>say('Phone ready · Quest can connect'));peer.on('error',()=>say('Connection unavailable · local scan still works'))}catch(e){say('Local scan mode')}}function bind(c){conn=c;c.on('open',()=>{say('QUEST CONNECTED · shared spatial session');$('start').disabled=false});c.on('data',d=>{if(d.t==='frame')remote=d.f||[]});c.on('close',()=>say('Quest disconnected · spatial memory retained'))}async function showQR(){await net();await load('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js');let q=qrcode(0,'M');q.addData(location.href.split('?')[0]+'?host='+peer.id);q.make();let c=$('qr'),x=c.getContext('2d'),n=q.getModuleCount(),z=Math.floor(720/(n+8));c.width=c.height=(n+8)*z;x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';for(let y=0;y<n;y++)for(let X=0;X<n;X++)if(q.isDark(y,X))x.fillRect((X+4)*z,(y+4)*z,z,z);$('pair').textContent='PAIR '+peer.id.slice(-7).toUpperCase()}$('show').onclick=async()=>{$('qrm').classList.add('on');try{await showQR()}catch(e){$('pair').textContent='QR unavailable'}};$('qx').onclick=()=>$('qrm').classList.remove('on');async function qrscan(){try{await load('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js');$('scm').classList.add('on');let v=$('sv'),st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});v.srcObject=st;await v.play();let c=document.createElement('canvas'),x=c.getContext('2d',{willReadFrequently:true});let f=()=>{if(!$('scm').classList.contains('on'))return st.getTracks().forEach(t=>t.stop());if(!v.videoWidth)return requestAnimationFrame(f);c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);let d=x.getImageData(0,0,c.width,c.height),q=jsQR(d.data,c.width,c.height,{inversionAttempts:'attemptBoth'});if(q)try{let u=new URL(q.data),id=u.searchParams.get('host');if(id){st.getTracks().forEach(t=>t.stop());$('scm').classList.remove('on');net().then(()=>bind(peer.connect(id,{reliable:true})));return}}catch(e){}requestAnimationFrame(f)};f()}catch(e){$('sm').textContent='Camera permission required'}}$('scan').onclick=qrscan;$('sx').onclick=()=>$('scm').classList.remove('on');async function camera(){if(stream)stream.getTracks().forEach(t=>t.stop());try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:front?'user':{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});vid=document.createElement('video');vid.srcObject=stream;vid.muted=true;vid.playsInline=true;await vid.play();return true}catch(e){say('Camera permission denied');return false}}$('flip').onclick=async()=>{front=!front;await camera();say('Camera: '+(front?'FRONT · reverse view':'BACK · world view'));};function image(){let w=256,h=192,c=document.createElement('canvas');c.width=w;c.height=h;let x=c.getContext('2d',{willReadFrequently:true});x.drawImage(vid,0,0,w,h);let d=x.getImageData(0,0,w,h).data,a=[];for(let y=5;y<h-5;y+=5)for(let X=5;X<w-5;X+=5){let i=(y*w+X)*4,g=.299*d[i]+.587*d[i+1]+.114*d[i+2],gx=Math.abs(g-(.299*d[i-4]+.587*d[i-3]+.114*d[i-2]))+Math.abs(g-(.299*d[i+4]+.587*d[i+5]+.114*d[i+6]))+Math.abs(g-(.299*d[i-4*w]+.587*d[i-4*w+1]+.114*d[i-4*w+2]))+Math.abs(g-(.299*d[i+4*w]+.587*d[i+4*w+1]+.114*d[i+4*w+2]));if(gx<22)continue;a.push({x:X,y,edge:gx,r:d[i],g:d[i+1],b:d[i+2]})}return a.sort((a,b)=>b.edge-a.edge).slice(0,420)}function depth(a){return a.map(p=>{let z=1.7+4*(1-Math.min(1,p.edge/650));return{x:(p.x-128)/105*z,y:(96-p.y)/105*z,z,conf:.2+.45*Math.min(1,p.edge/400),r:p.r/255,g:p.g/255,b:p.b/255}})}function fuse(a){for(let p of a){let k=`${Math.round(p.x/CELL)},${Math.round(p.y/CELL)},${Math.round(p.z/CELL)}`,v=map.get(k);if(v){v.x+=.16*(p.x-v.x);v.y+=.16*(p.y-v.y);v.z+=.16*(p.z-v.z);v.conf=.82*v.conf+.18*p.conf;v.r=.86*v.r+.14*p.r;v.g=.86*v.g+.14*p.g;v.b=.86*v.b+.14*p.b;v.hits=Math.min(255,v.hits+1);v.age=0}else map.set(k,{...p,hits:1,age:0})}for(let v of map.values()){v.age++;v.surface=Math.min(1,.45*v.conf+.55*Math.min(1,v.hits/8));v.keep=v.surface>.25&&v.age<45}if(map.size>MAX){let a=[...map.values()].filter(v=>v.keep).sort((a,b)=>b.surface-a.surface);map=new Map(a.slice(0,MAX).map(v=>[`${Math.round(v.x/CELL)},${Math.round(v.y/CELL)},${Math.round(v.z/CELL)}`,v]))}draw()}function draw(){if(!ren)return;let p=[],c=[];for(let v of map.values())if(v.keep){let q=.35+.65*v.surface;p.push(v.x,v.y,v.z);c.push(.02+.04*q,.14+.40*q,.34+.58*q)}if(window.g){scene.remove(g);g.geometry.dispose();g.material.dispose()}g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));window.g=new THREE.Points(g,new THREE.PointsMaterial({size:.032,vertexColors:true,transparent:true,opacity:.92,depthWrite:true,sizeAttenuation:true}));scene.add(g);let a=[...map.values()],s=a.length?a.reduce((n,v)=>n+v.surface,0)/a.length:0;$('stats').textContent=`XYZ ${map.size} · Depth ${Math.round(s*100)}% · Surface ${Math.round(s*100)}% · Coverage ${Math.min(100,Math.round(map.size/120))}%`;$('build').disabled=map.size<30}function poseUpdate(a){if(!lastImg){lastImg=a;return}let dx=0,dy=0,n=0;for(let p of a.slice(0,80)){let best=null,bd=999;for(let q of lastImg){let d=Math.hypot(p.x-q.x,p.y-q.y);if(d<bd){bd=d;best=q}}if(best&&bd<20){dx+=best.x-p.x;dy+=best.y-p.y;n++}}if(n){dx/=n;dy/=n;pose.x+=dx*.0009;pose.y-=dy*.0009}lastImg=a}async function spatial(){await init();if(!await camera())return;running=true;$('build').disabled=true;say(conn?.open?'DUAL VIEW · spatial reconstruction live':'PHONE · spatial reconstruction live');let loop=t=>{if(!running)return;if(t-last<70)return requestAnimationFrame(loop);last=t;let a=image();poseUpdate(a);let pts=depth(a);if(remote.length){let b=depth(remote);for(let i=0;i<Math.min(pts.length,b.length);i++){let q=b[i],p=pts[i];p.z=(p.z+q.z)*.5;p.conf=Math.min(1,p.conf+.22)}}fuse(pts);if(conn?.open)try{conn.send({t:'frame',f:a})}catch(e){}requestAnimationFrame(loop)};requestAnimationFrame(loop)}$('start').onclick=spatial;$('mode').onclick=()=>{mode=(mode+1)%3;$('mode').textContent=['Hologram','Depth','Structure'][mode];draw()};$('build').onclick=()=>{locked=true;say('SPATIAL LOCKED · cohesive hologram preserved');draw()};$('clear').onclick=()=>{map.clear();locked=false;lastImg=null;if(window.g){scene.remove(g);g.geometry.dispose();g.material.dispose();window.g=null}say('Spatial volume cleared');$('build').disabled=true};net();</script>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HyperStream Spatial Hologram</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#010409;color:#eaf6ff;font:14px system-ui,sans-serif}
+#view{position:fixed;inset:0;width:100%;height:100%;display:block}.ui{position:fixed;left:10px;right:10px;bottom:10px;z-index:5;padding:10px;border:1px solid #ffffff18;border-radius:18px;background:#070b12ee;backdrop-filter:blur(14px)}
+.row{display:flex;flex-wrap:wrap;gap:4px}button{border:0;border-radius:10px;padding:9px 11px;background:#176fc1;color:#fff;font-weight:700;cursor:pointer}button:disabled{opacity:.35;cursor:not-allowed}.status{color:#b9e8ff}.small{color:#899aaa;font-size:12px}.modal{display:none;position:fixed;inset:0;z-index:20;background:#000d;align-items:center;justify-content:center;padding:15px}.modal.on{display:flex}.card{background:#151a22;border-radius:18px;padding:16px;width:min(420px,100%);text-align:center}.qr{width:250px;height:250px;background:#fff;margin:10px auto;padding:7px}.qr canvas{width:100%;height:100%}video{width:100%;border-radius:13px;max-height:55vh;object-fit:cover}.err{color:#ff9d9d}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div class="ui">
+ <div class="status" id="status">Spatial Hologram ready</div>
+ <div class="row">
+  <button id="start">Start Spatial</button>
+  <button id="show">Connect Quest</button>
+  <button id="scan">Scan QR</button>
+  <button id="flip">Flip Camera</button>
+  <button id="mode">Hologram</button>
+  <button id="lock" disabled>Lock Space</button>
+  <button id="clear">Clear</button>
+ </div>
+ <div class="small" id="stats">XYZ 0 · Depth 0% · Solid 0% · Coverage 0% · State 0%</div>
+</div>
+<div class="modal" id="qrModal"><div class="card"><b>Connect Quest</b><div class="qr"><canvas id="qr"></canvas></div><div id="pair">Preparing…</div><button id="closeQR">Close</button></div></div>
+<div class="modal" id="scanModal"><div class="card"><b>Scan Quest QR</b><video id="scanVideo" autoplay playsinline muted></video><p id="scanText" class="small">Point the camera at the QR.</p><button id="closeScan">Cancel</button></div></div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const status=t=>$('status').textContent=t;
+let THREE=null,scene=null,camera3D=null,renderer=null,controls=null,points=null;
+let peer=null,connection=null,media=null,video=null,front=false,running=false,locked=false;
+let remoteFeatures=[],lastFeatures=null,lastFrame=0,mode=0;
+const cells=new Map();
+const CELL=.075,MAX_CELLS=9000;
+
+function script(src){return new Promise((resolve,reject)=>{if(document.querySelector('script[src="'+src+'"]'))return resolve();const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('Library failed'));document.head.appendChild(s)})}
+
+async function init3D(){
+ if(renderer)return true;
+ try{
+  await script('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');
+  await script('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js');
+  THREE=window.THREE;
+  scene=new THREE.Scene();
+  camera3D=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.01,100);
+  camera3D.position.set(0,1.2,4.8);
+  renderer=new THREE.WebGLRenderer({canvas:$('view'),antialias:true,preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+  renderer.setSize(innerWidth,innerHeight);
+  controls=new THREE.OrbitControls(camera3D,renderer.domElement);
+  controls.enableDamping=true;controls.autoRotate=false;
+  scene.add(new THREE.GridHelper(14,28,0x17304a,0x070d16));
+  const axes=new THREE.AxesHelper(1.2);axes.visible=false;scene.add(axes);
+  renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera3D)});
+  addEventListener('resize',()=>{if(!renderer)return;camera3D.aspect=innerWidth/innerHeight;camera3D.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+  return true;
+ }catch(e){status('3D engine could not load');return false}
+}
+
+async function startCamera(){
+ if(media)media.getTracks().forEach(t=>t.stop());
+ try{
+  media=await navigator.mediaDevices.getUserMedia({video:{facingMode:front?'user':'environment',width:{ideal:1280},height:{ideal:720}},audio:false});
+  video=video||document.createElement('video');video.muted=true;video.playsInline=true;video.srcObject=media;await video.play();
+  return true;
+ }catch(e){status('Camera permission is required');return false}
+}
+
+$('flip').onclick=async()=>{front=!front;const ok=await startCamera();status(ok?'Camera '+(front?'FRONT · reverse scan':'BACK · world scan'):'Camera failed to start')};
+
+function featureFrame(){
+ const w=320,h=240,c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(video,0,0,w,h);const d=ctx.getImageData(0,0,w,h).data;const out=[];
+ for(let y=6;y<h-6;y+=6)for(let x=6;x<w-6;x+=6){
+  const i=(y*w+x)*4;
+  const lum=(.299*d[i]+.587*d[i+1]+.114*d[i+2]);
+  const l=(xx,yy)=>{const j=(yy*w+xx)*4;return .299*d[j]+.587*d[j+1]+.114*d[j+2]};
+  const gx=Math.abs(lum-l(x-2,y))+Math.abs(lum-l(x+2,y));
+  const gy=Math.abs(lum-l(x,y-2))+Math.abs(lum-l(x,y+2));
+  const edge=gx+gy;
+  if(edge<26)continue;
+  out.push({x,y,edge,r:d[i]/255,g:d[i+1]/255,b:d[i+2]/255});
+ }
+ return out.sort((a,b)=>b.edge-a.edge).slice(0,700);
+}
+
+function estimateDepth(features){
+ return features.map(p=>{
+  const edge=Math.min(650,p.edge);
+  const z=1.1+(1-edge/650)*4.8;
+  return {x:(p.x-160)/125*z,y:(120-p.y)/125*z,z,confidence:.18+.55*(edge/650),r:p.r,g:p.g,b:p.b};
+ });
+}
+
+function updatePose(features){
+ if(!lastFeatures){lastFeatures=features;return 0}
+ let dx=0,dy=0,n=0;
+ for(const p of features.slice(0,120)){
+  let best=Infinity,bx=0,by=0;
+  for(const q of lastFeatures.slice(0,180)){
+   const dd=Math.hypot(p.x-q.x,p.y-q.y);
+   if(dd<best){best=dd;bx=q.x;by=q.y}
+  }
+  if(best<18){dx+=bx-p.x;dy+=by-p.y;n++}
+ }
+ lastFeatures=features;
+ if(!n)return 0;
+ return Math.min(1,Math.hypot(dx/n,dy/n)/40);
+}
+
+function fuse(samples,motion){
+ for(const p of samples){
+  const key=`${Math.round(p.x/CELL)},${Math.round(p.y/CELL)},${Math.round(p.z/CELL)}`;
+  let v=cells.get(key);
+  if(!v){v={...p,hits:1,age:0,motion:0,state:p.confidence,solid:p.confidence*.6};cells.set(key,v)}
+  else{
+   const w=.12+.18*p.confidence;
+   v.x+=(p.x-v.x)*w;v.y+=(p.y-v.y)*w;v.z+=(p.z-v.z)*w;
+   v.confidence=.8*v.confidence+.2*p.confidence;
+   v.r=.88*v.r+.12*p.r;v.g=.88*v.g+.12*p.g;v.b=.88*v.b+.12*p.b;
+   v.hits=Math.min(255,v.hits+1);v.age=0;v.motion=.8*v.motion+.2*motion;
+  }
+ }
+ for(const v of cells.values()){
+  v.age++;
+  const observation=Math.min(1,v.hits/9);
+  const freshness=Math.max(0,1-v.age/55);
+  const stability=1-Math.min(.8,v.motion);
+  v.solid=Math.max(0,Math.min(1,.5*v.confidence+.3*observation+.2*stability));
+  v.state=Math.max(0,Math.min(1,.45*v.confidence+.25*observation+.2*freshness+.1*stability));
+  v.keep=v.solid>.22&&freshness>.03;
+ }
+ if(cells.size>MAX_CELLS){
+  const good=[...cells.values()].filter(v=>v.keep).sort((a,b)=>(b.solid+b.state*.5)-(a.solid+a.state*.5)).slice(0,MAX_CELLS);
+  cells.clear();for(const v of good)cells.set(`${Math.round(v.x/CELL)},${Math.round(v.y/CELL)},${Math.round(v.z/CELL)}`,v);
+ }
+ renderSpace();
+}
+
+function renderSpace(){
+ if(!renderer)return;
+ const positions=[],colors=[];
+ for(const v of cells.values()){
+  if(!v.keep)continue;
+  let q=v.solid;
+  if(mode===1)q=v.confidence;
+  if(mode===2)q=v.state;
+  const depth=Math.max(.6,Math.min(1.45,1/(.7+.07*v.z)));
+  positions.push(v.x,v.y,v.z);
+  colors.push(.015+.04*q,.10+.42*q,.28+.62*q*depth);
+ }
+ if(points){scene.remove(points);points.geometry.dispose();points.material.dispose()}
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+ points=new THREE.Points(g,new THREE.PointsMaterial({size:.026,vertexColors:true,transparent:true,opacity:.95,depthWrite:true,sizeAttenuation:true}));scene.add(points);
+ const vals=[...cells.values()];const avg=(f)=>vals.length?vals.reduce((s,v)=>s+f(v),0)/vals.length:0;
+ $('stats').textContent=`XYZ ${cells.size} · Depth ${Math.round(avg(v=>v.confidence)*100)}% · Solid ${Math.round(avg(v=>v.solid)*100)}% · Coverage ${Math.min(100,Math.round(cells.size/MAX_CELLS*100))}% · State ${Math.round(avg(v=>v.state)*100)}%`;
+ $('lock').disabled=cells.size<25||locked;
+}
+
+async function startSpatial(){
+ if(running)return;
+ if(!await init3D())return;
+ if(!await startCamera())return;
+ running=true;status('SPATIAL LIVE · move slowly around solid surfaces');$('lock').disabled=true;
+ const loop=t=>{
+  if(!running)return;
+  if(t-lastFrame<75){requestAnimationFrame(loop);return}
+  lastFrame=t;
+  const features=featureFrame();
+  const motion=updatePose(features);
+  let samples=estimateDepth(features);
+  if(remoteFeatures.length){
+   const remote=estimateDepth(remoteFeatures);
+   for(let i=0;i<Math.min(samples.length,remote.length);i++){
+    samples[i].z=samples[i].z*.72+remote[i].z*.28;
+    samples[i].confidence=Math.min(1,samples[i].confidence+.15);
+   }
+  }
+  fuse(samples,motion);
+  if(connection&&connection.open)try{connection.send({t:'frame',f:features})}catch(e){}
+  requestAnimationFrame(loop);
+ };
+ requestAnimationFrame(loop);
+}
+$('start').onclick=startSpatial;
+
+$('mode').onclick=()=>{mode=(mode+1)%3;$('mode').textContent=['Hologram','Depth','Structure'][mode];renderSpace()};
+$('lock').onclick=()=>{locked=true;status('SPATIAL LOCKED · hologram preserved');renderSpace()};
+$('clear').onclick=()=>{cells.clear();lastFeatures=null;locked=false;renderSpace();$('lock').disabled=true;status('Spatial volume cleared')};
+
+async function network(){
+ if(peer)return;
+ try{
+  await script('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js');
+  peer=new Peer();
+  peer.on('open',()=>status('Phone ready · Connect Quest with QR'));
+  peer.on('connection',c=>attach(c));
+  peer.on('error',()=>status('Quest connection unavailable · local spatial scan still works'));
+ }catch(e){status('Local spatial mode ready')}
+}
+function attach(c){connection=c;c.on('open',()=>status('QUEST CONNECTED · dual spatial data'));c.on('data',d=>{if(d&&d.t==='frame')remoteFeatures=d.f||[]});c.on('close',()=>{remoteFeatures=[];status('Quest disconnected · local hologram preserved')})}
+
+async function showQR(){
+ await network();if(!peer){$('pair').textContent='Connection library unavailable';return}
+ try{await script('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js');const q=qrcode(0,'M');q.addData(location.href.split('?')[0]+'?host='+peer.id);q.make();const c=$('qr'),ctx=c.getContext('2d'),n=q.getModuleCount(),z=Math.floor(720/(n+8));c.width=c.height=(n+8)*z;ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#000';for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(q.isDark(y,x))ctx.fillRect((x+4)*z,(y+4)*z,z,z);$('pair').textContent='PAIR '+peer.id.slice(-7).toUpperCase()}catch(e){$('pair').textContent='QR generator unavailable'}}
+$('show').onclick=async()=>{$('qrModal').classList.add('on');await showQR()};$('closeQR').onclick=()=>$('qrModal').classList.remove('on');
+
+$('scan').onclick=async()=>{
+ try{
+  await script('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js');$('scanModal').classList.add('on');const v=$('scanVideo');const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});v.srcObject=st;await v.play();const c=document.createElement('canvas'),ctx=c.getContext('2d',{willReadFrequently:true});
+  const tick=()=>{if(!$('scanModal').classList.contains('on')){st.getTracks().forEach(t=>t.stop());return}if(!v.videoWidth)return requestAnimationFrame(tick);c.width=v.videoWidth;c.height=v.videoHeight;ctx.drawImage(v,0,0);const d=ctx.getImageData(0,0,c.width,c.height),q=jsQR(d.data,c.width,c.height,{inversionAttempts:'attemptBoth'});if(q)try{const u=new URL(q.data),id=u.searchParams.get('host');if(id){st.getTracks().forEach(t=>t.stop());$('scanModal').classList.remove('on');await network();if(peer)attach(peer.connect(id,{reliable:true}));return}}catch(e){}requestAnimationFrame(tick)};tick();
+ }catch(e){$('scanText').textContent='Camera permission required'}};
+$('closeScan').onclick=()=>$('scanModal').classList.remove('on');
+
+network();
+</script>
+</body>
+</html>
