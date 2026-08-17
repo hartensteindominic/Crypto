@@ -14,6 +14,7 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
 
     void Awake()
     {
+        Application.targetFrameRate = 72;
         EnsureXRScene();
         if (relay == null) relay = gameObject.AddComponent<HyperStreamRelayClient>();
         if (mapper == null) mapper = gameObject.AddComponent<HyperStreamQuestWorldMapper>();
@@ -35,26 +36,39 @@ public sealed class HyperStreamBootstrap : MonoBehaviour
         {
             var root = new GameObject("XR Origin");
             xrOrigin = root.AddComponent<XROrigin>();
+            var offset = new GameObject("Camera Offset");
+            offset.transform.SetParent(root.transform, false);
             var cameraGO = new GameObject("Main Camera");
             cameraGO.tag = "MainCamera";
-            cameraGO.transform.SetParent(root.transform, false);
-            cameraGO.transform.localPosition = Vector3.zero;
-            cameraGO.AddComponent<Camera>();
+            cameraGO.transform.SetParent(offset.transform, false);
+            var camera = cameraGO.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0f,0f,0f,0f);
+            camera.nearClipPlane = .05f;
+            camera.farClipPlane = 50f;
             cameraGO.AddComponent<ARCameraManager>();
-            cameraGO.AddComponent<ARCameraBackground>();
-            xrOrigin.Camera = cameraGO.GetComponent<Camera>();
-            xrOrigin.CameraFloorOffsetObject = cameraGO;
+            cameraGO.AddComponent<HyperStreamQuestHeadPose>();
+            xrOrigin.Camera = camera;
+            xrOrigin.CameraFloorOffsetObject = offset;
+        }
+
+        var mainCamera = xrOrigin.Camera;
+        if (mainCamera != null)
+        {
+            mainCamera.clearFlags = CameraClearFlags.SolidColor;
+            mainCamera.backgroundColor = new Color(0f,0f,0f,0f);
+            if (mainCamera.GetComponent<ARCameraManager>() == null) mainCamera.gameObject.AddComponent<ARCameraManager>();
+            if (mainCamera.GetComponent<HyperStreamQuestHeadPose>() == null) mainCamera.gameObject.AddComponent<HyperStreamQuestHeadPose>();
         }
 
         planeManager = xrOrigin.GetComponent<ARPlaneManager>();
         if (planeManager == null) planeManager = xrOrigin.gameObject.AddComponent<ARPlaneManager>();
         planeManager.requestedDetectionMode = UnityEngine.XR.ARSubsystems.PlaneDetectionMode.Horizontal | UnityEngine.XR.ARSubsystems.PlaneDetectionMode.Vertical;
-        planeManager.enabled = true;
+        planeManager.enabled = false;
 
         meshManager = xrOrigin.GetComponent<ARMeshManager>();
         if (meshManager == null) meshManager = xrOrigin.gameObject.AddComponent<ARMeshManager>();
-        meshManager.density = UnityEngine.XR.ARSubsystems.MeshVertexAttributes.None;
-        meshManager.enabled = true;
+        meshManager.enabled = false;
     }
 
     public void StartMapping()
