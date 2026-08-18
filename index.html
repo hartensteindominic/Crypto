@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HyperStream XD • 4D + VR</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#020617;color:#f1f5f9;font-family:system-ui,-apple-system,sans-serif}
+body{display:flex}
+#sidebar{width:380px;min-width:300px;background:rgba(3,7,18,0.97);border-right:1px solid #1e293b;display:flex;flex-direction:column;padding:14px;gap:10px;overflow-y:auto;z-index:30}
+.brand{font-size:14px;font-weight:900;color:#38bdf8;line-height:1.3}
+.brand span{background:linear-gradient(90deg,#38bdf8,#ec4899,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.card{background:rgba(15,23,42,0.9);border:1px solid #334155;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#94a3b8}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:11px;gap:8px;color:#cbd5e1}
+input[type=range]{accent-color:#ec4899;width:120px}
+button{border:none;border-radius:8px;padding:10px 12px;font-size:11px;font-weight:800;cursor:pointer;color:#fff}
+button:active{transform:scale(0.97)}
+.btn-danger{background:#ef4444;width:100%}
+.btn-danger.on{background:#f97316}
+.btn-secondary{background:#1e293b;border:1px solid #475569}
+.btn-success{background:#10b981}
+.btn-vr{background:linear-gradient(135deg,#6366f1,#ec4899)}
+.btn-main{background:linear-gradient(135deg,#8b5cf6,#ec4899)}
+.tabs{display:flex;gap:6px}
+.tab{flex:1;padding:9px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer}
+.tab.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border:none}
+#viewer{flex:1;position:relative;background:#020617}
+canvas{display:block;width:100%;height:100%}
+.stats{position:absolute;top:14px;right:14px;background:rgba(2,6,23,0.9);padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);font-size:11px;color:#94a3b8;z-index:20}
+.stats b{color:#ec4899}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:10px;padding:4px 8px;border-radius:6px;background:#1e293b;border:1px solid #475569;cursor:pointer}
+.chip.on{background:#ec4899;border-color:#db2777;color:#fff}
+textarea{width:100%;height:50px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f8fafc;font-size:10px;padding:8px;resize:none}
+.drop{border:1.5px dashed #475569;padding:14px;border-radius:10px;text-align:center;font-size:11px;cursor:pointer;color:#94a3b8}
+.drop.over{border-color:#ec4899;background:rgba(236,72,153,0.1)}
+input[type=file]{display:none}
+.prog{height:5px;background:#1e293b;border-radius:4px;overflow:hidden;margin-top:6px}
+.prog>div{height:100%;background:linear-gradient(90deg,#38bdf8,#ec4899);width:0%}
+.hint{font-size:10px;color:#94a3b8;line-height:1.4}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;padding:12px 20px;border-radius:999px;background:#020617f0;border:1px solid #ffffff22;font-size:12px;opacity:0;transition:0.25s}
+.toast.show{opacity:1}
+@media(max-width:900px){
+  #sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);width:min(360px,92vw);transition:0.25s;z-index:40}
+  #sidebar.open{transform:translateX(0)}
+  #menuBtn{display:flex}
+}
+#menuBtn{display:none;position:fixed;top:12px;left:12px;z-index:50;width:42px;height:42px;border-radius:50%;background:rgba(15,23,42,0.95);border:1px solid #475569;color:#fff;font-size:18px;align-items:center;justify-content:center;cursor:pointer}
+</style>
+</head>
+<body>
+
+<button id="menuBtn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+
+<div id="sidebar">
+  <div class="brand">HYPERSTREAM XD<br><span>4D + VR</span></div>
+
+  <div class="tabs">
+    <button class="tab on" id="t-cap" onclick="setMode('cap')">Live 4D</button>
+    <button class="tab" id="t-load" onclick="setMode('load')">Load</button>
+  </div>
+
+  <div class="card" id="p-cap">
+    <div class="title">Volumetric Scan</div>
+    <button class="btn-danger" id="scanBtn" onclick="toggleScan()">ACTIVATE 4D SCAN</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn-secondary" style="flex:1" id="camBtn" onclick="switchCam()">Front Cam</button>
+      <button class="btn-secondary" style="flex:1" id="perfBtn" onclick="togglePerf()">Warp</button>
+    </div>
+    <div class="row"><span>Density</span><input type="range" id="step" min="1" max="3" value="2" oninput="stepSize=+this.value;document.getElementById('stepV').textContent=this.value"><span id="stepV">2</span></div>
+    <div class="row"><span>Depth</span><input type="range" id="depth" min="10" max="140" value="85" oninput="depthMul=+this.value"></div>
+    <div class="row"><span>Size</span><input type="range" id="psize" min="0.005" max="0.06" value="0.014" step="0.001" oninput="ptSize=+this.value;updatePointSize()"></div>
+    <div class="row"><span>Layers</span><input type="range" id="layers" min="2" max="20" value="12" oninput="layerN=+this.value;document.getElementById('layV').textContent=this.value;buildChips()"><span id="layV">12</span></div>
+    <div class="row"><span>Spread</span><input type="range" id="spread" min="0.3" max="3.5" value="1.5" step="0.05" oninput="layerSp=+this.value"></div>
+    <div style="font-size:10px;color:#94a3b8">Voxels <b id="nLive">0</b> · Frames <b id="nFrm">0</b></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-success" style="flex:1" onclick="exportJSON()">Export</button>
+      <button class="btn-secondary" style="flex:1" onclick="copyJSON()">Copy</button>
+    </div>
+    <textarea id="jsonOut" readonly placeholder="Stream data..."></textarea>
+  </div>
+
+  <div class="card" id="p-load" style="display:none">
+    <div class="title">Import</div>
+    <div class="drop" id="drop" onclick="document.getElementById('fi').click()">Drop JSON or Click
+      <input type="file" id="fi" accept=".json" onchange="fileIn(event)">
+    </div>
+    <button class="btn-secondary" onclick="clearAll()">Clear</button>
+  </div>
+
+  <div class="card">
+    <div class="title">Render</div>
+    <div class="row"><span>Mode</span>
+      <select id="rmode" onchange="rMode=this.value">
+        <option value="points">Points</option>
+        <option value="quantumWave">Quantum Wave</option>
+        <option value="plasmaVortex">Plasma</option>
+      </select>
+    </div>
+    <div class="row"><span>Bloom</span><input type="range" id="bloomInt" min="0" max="2.5" value="1.1" step="0.1" oninput="if(bloomPass)bloomPass.strength=+this.value"></div>
+    <div class="row"><span>Warp</span><input type="range" id="meta" min="0" max="100" value="35" oninput="metaV=this.value/100;document.getElementById('metaV').textContent=metaV.toFixed(2)"><span id="metaV">0.35</span></div>
+    <div class="row"><span>Timeline</span><input type="range" id="scrub" min="0" max="0" value="0" oninput="playIdx=+this.value;if(frames.length)drawFrame(playIdx)"><span id="scrubV">0/0</span></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-secondary" style="flex:1" id="playBtn" onclick="togglePlay()">Play</button>
+      <button class="btn-secondary" style="flex:1" onclick="resetCam()">Recenter</button>
+    </div>
+    <div class="row"><span>Orbit</span><input type="checkbox" id="orbit" checked onchange="autoOrbit=this.checked"></div>
+    <div class="row"><span>Pulse</span><input type="checkbox" id="pulse" checked onchange="doPulse=this.checked"></div>
+    <div class="title" style="margin-top:4px">Layers</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="card">
+    <div class="title">VR</div>
+    <button class="btn-vr" id="vrBtn" onclick="toggleVR()">Enter VR</button>
+    <div class="hint" id="xrHint">Checking WebXR...</div>
+    <div class="hint">In VR: Hold trigger 0.6s to record hologram</div>
+  </div>
+
+  <div class="card">
+    <div class="title">Export</div>
+    <button class="btn-main" style="background:#0d9488" onclick="exportPNG()">PNG</button>
+    <button class="btn-main" style="background:#2563eb;margin-top:6px" id="webmBtn" onclick="exportVideo()">Record Video</button>
+    <div class="prog"><div id="progFill"></div></div>
+    <div class="hint" id="expStatus">Ready</div>
+  </div>
+</div>
+
+<div id="viewer">
+  <div class="stats">
+    <span id="status">Starting...</span><br>
+    FPS <b id="fpsD">—</b> · Voxels <b id="nodesD">0</b>
+  </div>
+  <video id="vid" autoplay playsinline muted style="display:none"></video>
+  <canvas id="c3"></canvas>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+
+  // State
+  let scene, camera, renderer, controls, composer, bloomPass;
+  let holoRoot, layers = [], prevPos = [];
+  let video, ctx2d, canvas2d;
+  let scanning = false, rec = [], frameCount = 0;
+  let stepSize = 2, depthMul = 85, ptSize = 0.014;
+  let layerN = 12, layerSp = 1.5, smooth = 0.3;
+  let rMode = 'points', metaV = 0.35;
+  let isPlaying = false, frames = [], playIdx = 0, lastPlayTime = 0;
+  let autoOrbit = true, doPulse = true, layerVis = [];
+  let facing = 'user', mediaStream = null, camReady = false;
+  let performanceMode = false;
+  let lastSample = 0;
+  let frameCounter = 0, lastFpsTime = 0, phase = 0;
+  let exporting = false;
+  let controllers = [];
+  let grabState = { active: null, offset: new THREE.Vector3(), lastDist: 0 };
+  let stars = null;
+  let vrRecording = false, vrFrames = [], vrInterval = null, vrIndicator = null;
+
+  // ---------- INIT ----------
+  function init() {
+    try {
+      initThree();
+      initCamera('user');
+      initDrop();
+      buildChips();
+      checkXR();
+      $('status').textContent = 'Engine Online';
+      console.log('HyperStream XD initialized');
+    } catch (err) {
+      console.error('Init error:', err);
+      $('status').textContent = 'Error: ' + err.message;
+    }
+  }
+
+  function initThree() {
+    const box = $('viewer');
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020617, 0.015);
+
+    camera = new THREE.PerspectiveCamera(50, box.clientWidth / box.clientHeight, 0.1, 1000);
+    camera.position.set(0, 0.5, 4);
+
+    renderer = new THREE.WebGLRenderer({
+      canvas: $('c3'),
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: true
+    });
+    renderer.setSize(box.clientWidth, box.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x020617);
+    renderer.xr.enabled = true;
+
+    holoRoot = new THREE.Group();
+    scene.add(holoRoot);
+
+    // Stars
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 1500;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i++) starPos[i] = (Math.random() - 0.5) * 80;
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+      color: 0x94a3b8, size: 0.06, transparent: true, opacity: 0.6
+    }));
+    scene.add(stars);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const d1 = new THREE.DirectionalLight(0x38bdf8, 1.2);
+    d1.position.set(4, 6, 3);
+    scene.add(d1);
+    const d2 = new THREE.DirectionalLight(0xec4899, 0.9);
+    d2.position.set(-4, 2, -3);
+    scene.add(d2);
+
+    // Grid
+    const grid = new THREE.GridHelper(30, 30, 0xec4899, 0x1e293b);
+    grid.position.y = -2;
+    scene.add(grid);
+
+    // Controls
+    if (typeof THREE.OrbitControls !== 'undefined') {
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.35;
+      controls.target.set(0, 0, 0);
+    }
+
+    // Post-processing (safe)
+    try {
+      if (typeof THREE.EffectComposer !== 'undefined') {
+        composer = new THREE.EffectComposer(renderer);
+        composer.addPass(new THREE.RenderPass(scene, camera));
+        bloomPass = new THREE.UnrealBloomPass(
+          new THREE.Vector2(box.clientWidth, box.clientHeight), 1.1, 0.4, 0.85
+        );
+        composer.addPass(bloomPass);
+      }
+    } catch (e) {
+      console.warn('Post-processing failed, using basic renderer', e);
+      composer = null;
+    }
+
+    // Controllers
+    for (let i = 0; i < 2; i++) {
+      const controller = renderer.xr.getController(i);
+      controller.userData.selecting = false;
+      controller.userData.holdTimer = null;
+      controller.addEventListener('selectstart', () => onSelectStart(controller));
+      controller.addEventListener('selectend', () => onSelectEnd(controller));
+      scene.add(controller);
+      controllers.push(controller);
+
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -0.4)
+      ]);
+      controller.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({
+        color: 0xec4899, transparent: true, opacity: 0.6
+      })));
+    }
+
+    // VR Indicator
+    const indGroup = new THREE.Group();
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.15, 0.2, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xef4444, transparent: true, opacity: 0,
+        side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+      })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    indGroup.add(ring);
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 10, 8),
+      new THREE.MeshBasicMaterial({
+        color: 0xef4444, transparent: true, opacity: 0,
+        depthWrite: false, blending: THREE.AdditiveBlending
+      })
+    );
+    indGroup.add(sphere);
+    indGroup.position.set(0, 1.9, -1.4);
+    indGroup.visible = false;
+    scene.add(indGroup);
+    vrIndicator = { group: indGroup, ring, sphere };
+
+    // XR events
+    renderer.xr.addEventListener('sessionstart', () => {
+      $('vrBtn').textContent = 'Exit VR';
+      $('status').textContent = 'VR Active';
+      holoRoot.position.set(0, 1.2, -1.6);
+      holoRoot.scale.setScalar(0.7);
+    });
+    renderer.xr.addEventListener('sessionend', () => {
+      $('vrBtn').textContent = 'Enter VR';
+      $('status').textContent = 'Engine Online';
+      holoRoot.position.set(0, 0, 0);
+      holoRoot.scale.setScalar(1);
+      releaseGrab();
+      if (vrRecording) stopVRRecord();
+    });
+
+    window.addEventListener('resize', onResize);
+    renderer.setAnimationLoop(animate);
+  }
+
+  function onResize() {
+    const box = $('viewer');
+    if (!box || !camera || !renderer) return;
+    camera.aspect = box.clientWidth / box.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(box.clientWidth, box.clientHeight);
+    if (composer) composer.setSize(box.clientWidth, box.clientHeight);
+  }
+
+  // ---------- CAMERA ----------
+  function initCamera(face) {
+    video = $('vid');
+    canvas2d = document.createElement('canvas');
+    ctx2d = canvas2d.getContext('2d', { willReadFrequently: true });
+
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+    camReady = false;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('status').textContent = 'No camera support';
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: face }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    }).then(stream => {
+      mediaStream = stream;
+      facing = face;
+      video.srcObject = stream;
+      return video.play();
+    }).then(() => {
+      camReady = true;
+      $('camBtn').textContent = face === 'environment' ? 'Back Cam' : 'Front Cam';
+      $('status').textContent = 'Camera Online';
+    }).catch(err => {
+      console.warn('Camera error', err);
+      if (face !== 'user') initCamera('user');
+      else $('status').textContent = 'Camera blocked';
+    });
+  }
+
+  function switchCam() {
+    initCamera(facing === 'user' ? 'environment' : 'user');
+  }
+
+  // ---------- XR ----------
+  function checkXR() {
+    if (!navigator.xr) {
+      $('xrHint').textContent = 'WebXR not available';
+      return;
+    }
+    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+      $('xrHint').textContent = supported
+        ? 'WebXR ready • Use Quest Browser (HTTPS)'
+        : 'VR not supported here';
+    }).catch(() => {
+      $('xrHint').textContent = 'Open in Quest Browser';
+    });
+  }
+
+  async function toggleVR() {
+    if (renderer.xr.isPresenting) {
+      const session = renderer.xr.getSession();
+      if (session) await session.end();
+      return;
+    }
+    try {
+      const supported = await navigator.xr.isSessionSupported('immersive-vr');
+      if (!supported) {
+        show('VR not available');
+        return;
+      }
+      const session = await navigator.xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor', 'bounded-floor']
+      });
+      await renderer.xr.setSession(session);
+      show('VR started');
+    } catch (e) {
+      console.error(e);
+      show('Open in Quest Browser over HTTPS');
+    }
+  }
+
+  // ---------- CONTROLLERS ----------
+  function onSelectStart(controller) {
+    controller.userData.selecting = true;
+
+    if (renderer.xr.isPresenting) {
+      controller.userData.holdTimer = setTimeout(() => {
+        toggleVRRecord();
+      }, 600);
+    }
+
+    const active = controllers.filter(c => c.userData.selecting);
+    if (active.length === 1) {
+      grabState.active = controller;
+      const p = new THREE.Vector3();
+      controller.getWorldPosition(p);
+      grabState.offset.copy(p).sub(holoRoot.position);
+    }
+    if (active.length === 2) {
+      grabState.lastDist = controllers[0].position.distanceTo(controllers[1].position);
+    }
+  }
+
+  function onSelectEnd(controller) {
+    controller.userData.selecting = false;
+    if (controller.userData.holdTimer) {
+      clearTimeout(controller.userData.holdTimer);
+      controller.userData.holdTimer = null;
+    }
+    if (!controllers.some(c => c.userData.selecting)) {
+      grabState.active = null;
+      grabState.lastDist = 0;
+    }
+  }
+
+  function releaseGrab() {
+    grabState.active = null;
+    grabState.lastDist = 0;
+  }
+
+  function updateGrab() {
+    if (!renderer.xr.isPresenting) return;
+    const active = controllers.filter(c => c.userData.selecting);
+    if (active.length === 1) {
+      const p = new THREE.Vector3();
+      active[0].getWorldPosition(p);
+      holoRoot.position.lerp(p.sub(grabState.offset), 0.22);
+    } else if (active.length === 2) {
+      const d = controllers[0].position.distanceTo(controllers[1].position);
+      if (grabState.lastDist > 0.01) {
+        const ratio = THREE.MathUtils.clamp(d / grabState.lastDist, 0.95, 1.05);
+        holoRoot.scale.multiplyScalar(ratio);
+        holoRoot.scale.clampScalar(0.35, 2.8);
+      }
+      grabState.lastDist = d;
+    }
+  }
+
+  // ---------- VR RECORD ----------
+  function toggleVRRecord() {
+    if (!renderer.xr.isPresenting) return;
+    if (vrRecording) stopVRRecord();
+    else startVRRecord();
+  }
+
+  function startVRRecord() {
+    vrFrames = [];
+    vrRecording = true;
+    if (vrIndicator) {
+      vrIndicator.group.visible = true;
+      vrIndicator.ring.material.opacity = 0.7;
+      vrIndicator.sphere.material.opacity = 0.85;
+    }
+    show('VR Recording... Hold trigger again to stop');
+    $('status').textContent = 'Recording in VR...';
+    vrInterval = setInterval(captureVRFrame, 40);
+  }
+
+  function stopVRRecord() {
+    vrRecording = false;
+    if (vrInterval) {
+      clearInterval(vrInterval);
+      vrInterval = null;
+    }
+    if (vrIndicator) {
+      vrIndicator.group.visible = false;
+      vrIndicator.ring.material.opacity = 0;
+      vrIndicator.sphere.material.opacity = 0;
+    }
+
+    if (vrFrames.length > 2) {
+      frames = vrFrames;
+      rec = vrFrames;
+      playIdx = 0;
+      isPlaying = true;
+      $('playBtn').textContent = 'Pause';
+      $('scrub').max = frames.length - 1;
+      $('scrub').value = 0;
+      $('scrubV').textContent = '0/' + (frames.length - 1);
+      $('nFrm').textContent = frames.length;
+      $('status').textContent = 'VR Hologram • ' + frames.length + ' frames';
+      drawFrame(0);
+      show('Saved ' + frames.length + ' frames from VR');
+    } else {
+      show('Recording too short');
+    }
+  }
+
+  function captureVRFrame() {
+    if (!vrRecording || layers.length === 0) return;
+    try {
+      const src = layers[0];
+      if (!src || !src.geometry || !src.geometry.attributes.position) return;
+      const pos = src.geometry.attributes.position;
+      const col = src.geometry.attributes.color;
+      const count = pos.count;
+      const step = count > 6000 ? 2 : 1;
+      const v = [], c = [];
+      for (let i = 0; i < count; i += step) {
+        v.push(
+          +pos.array[i*3].toFixed(3),
+          +pos.array[i*3+1].toFixed(3),
+          +pos.array[i*3+2].toFixed(3)
+        );
+        if (col) {
+          c.push(
+            +col.array[i*3].toFixed(2),
+            +col.array[i*3+1].toFixed(2),
+            +col.array[i*3+2].toFixed(2)
+          );
+        } else {
+          c.push(0.5, 0.4, 0.9);
+        }
+      }
+      vrFrames.push({
+        vertices: v,
+        colors: c,
+        meta: 0.35 + Math.random() * 0.15,
+        layers: layerN,
+        spread: layerSp
+      });
+      if (vrFrames.length >= 75) stopVRRecord();
+    } catch (e) {}
+  }
+
+  // ---------- ANIMATION LOOP ----------
+  function animate(now) {
+    now = now || performance.now();
+    phase = now * 0.001;
+
+    if (controls && !exporting && !renderer.xr.isPresenting) {
+      controls.autoRotate = autoOrbit;
+      controls.update();
+    }
+
+    if (stars) stars.rotation.y = phase * 0.012;
+
+    if (vrRecording && vrIndicator) {
+      vrIndicator.ring.rotation.z = phase * 2;
+      vrIndicator.ring.material.opacity = 0.45 + Math.sin(phase * 5) * 0.25;
+      vrIndicator.sphere.material.opacity = 0.6 + Math.sin(phase * 7) * 0.25;
+    }
+
+    // FPS
+    frameCounter++;
+    if (now - lastFpsTime > 1000) {
+      $('fpsD').textContent = Math.round(frameCounter * 100
